@@ -37,35 +37,22 @@ func StrLength(min, max int) Validator {
 	}
 }
 
-func IntRange(min, max int64) Validator {
+func NumRange(min, max float64) Validator {
 	return func(i interface{}) error {
 		if n, ok := i.(int64); ok {
-			if n < min || max < n {
+			if float64(n) < min || max < float64(n) {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
 		} else if n, ok := i.(uint64); ok {
-			if int64(n) < min || max < int64(n) {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(float64); ok {
+			if n < min || max < n {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
 		} else {
 			return fmt.Errorf("expected int or uint")
-		}
-		return nil
-	}
-}
-
-func FloatRange(min, max float64) Validator {
-	return func(i interface{}) error {
-		if n, ok := i.(float64); ok {
-			if n < min || max < n {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
-		} else if n, ok := i.(float32); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
-		} else {
-			return fmt.Errorf("expected floating point")
 		}
 		return nil
 	}
@@ -128,7 +115,7 @@ func IPv6Address() Validator {
 }
 
 func Port() Validator {
-	return IntRange(1, 65535)
+	return NumRange(1, 65535)
 }
 
 func Path() Validator {
@@ -261,12 +248,13 @@ Prompt:
 		return fmt.Errorf("destination must be pointer to variable")
 	}
 	dst = dst.Elem()
+	kind := dst.Kind()
 
 	// fill destination
 	var err error
 	ival := ideflt
 	if res != "" || ival == nil {
-		switch kind := dst.Kind(); kind {
+		switch kind {
 		case reflect.String:
 			ival = res
 		case reflect.Bool:
@@ -301,17 +289,7 @@ Prompt:
 			} else if max < i {
 				err = fmt.Errorf("integer overflow")
 			}
-			if kind == reflect.Int {
-				ival = int(i)
-			} else if kind == reflect.Int8 {
-				ival = int8(i)
-			} else if kind == reflect.Int16 {
-				ival = int16(i)
-			} else if kind == reflect.Int32 {
-				ival = int32(i)
-			} else {
-				ival = i
-			}
+			ival = i
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			var max uint64 = math.MaxUint64
 			if kind == reflect.Uint {
@@ -330,17 +308,7 @@ Prompt:
 			} else if max < u {
 				err = fmt.Errorf("unsigned integer overflow")
 			}
-			if kind == reflect.Uint {
-				ival = uint(u)
-			} else if kind == reflect.Uint8 {
-				ival = uint8(u)
-			} else if kind == reflect.Uint16 {
-				ival = uint16(u)
-			} else if kind == reflect.Uint32 {
-				ival = uint32(u)
-			} else {
-				ival = u
-			}
+			ival = u
 		case reflect.Float32, reflect.Float64:
 			bitsize := 64
 			if kind == reflect.Float32 {
@@ -352,11 +320,7 @@ Prompt:
 			} else if perr != nil {
 				err = fmt.Errorf("invalid floating point")
 			}
-			if kind == reflect.Float32 {
-				ival = float32(f)
-			} else {
-				ival = f
-			}
+			ival = f
 		default:
 			return fmt.Errorf("unsupported destination type: %v", kind)
 		}
@@ -379,6 +343,27 @@ Prompt:
 		goto Prompt
 	} else if !first {
 		fmt.Printf(escClearLine)
+	}
+
+	switch kind {
+	case reflect.Int:
+		ival = int(ival.(int64))
+	case reflect.Int8:
+		ival = int8(ival.(int64))
+	case reflect.Int16:
+		ival = int16(ival.(int64))
+	case reflect.Int32:
+		ival = int32(ival.(int64))
+	case reflect.Uint:
+		ival = uint(ival.(uint64))
+	case reflect.Uint8:
+		ival = uint8(ival.(uint64))
+	case reflect.Uint16:
+		ival = uint16(ival.(uint64))
+	case reflect.Uint32:
+		ival = uint32(ival.(uint64))
+	case reflect.Float32:
+		ival = float32(ival.(float64))
 	}
 	dst.Set(reflect.ValueOf(ival))
 	return nil
