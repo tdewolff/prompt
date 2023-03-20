@@ -88,8 +88,7 @@ func main() {
 ### Validators
 ```go
 StrLength(min, max int)           // limit string length (-1 is no limit)
-IntRange(min, max int64)          // limit int64/uint64 range
-FloatRange(min, max float64)      // limit float32/float64 range
+NumRange(min, max float64)        // limit int/uint/float range
 Prefix(afix string)
 Suffix(afix string)
 Pattern(pattern, message string)  // pattern match and error message
@@ -98,8 +97,8 @@ IPAddress()
 IPv4Address()
 IPv6Address()
 Port()                            // server port
-Path()                            // Linux path
-AbsPath()                         // Linux absolute path
+Path()                            // Unix path
+AbsPath()                         // Unix absolute path
 UserName()
 TopDomainName()                   // such as example.com
 DomainName()                      // such as sub.example.com

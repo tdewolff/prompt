@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/araddon/dateparse"
 )
 
 var OptionSelected = fmt.Sprintf("  %v[\u00D7] %%v%v", escBold, escReset)
@@ -27,7 +30,7 @@ func StrLength(min, max int) Validator {
 		if s, ok := i.(string); ok {
 			if len(s) < min {
 				return fmt.Errorf("too short, minimum is %v", min)
-			} else if max < len(s) {
+			} else if max != -1 && max < len(s) {
 				return fmt.Errorf("too long, maximum is %v", max)
 			}
 		} else {
@@ -39,11 +42,47 @@ func StrLength(min, max int) Validator {
 
 func NumRange(min, max float64) Validator {
 	return func(i interface{}) error {
-		if n, ok := i.(int64); ok {
+		if n, ok := i.(int); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(int8); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(int16); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(int32); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(int64); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(uint); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(uint8); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(uint16); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(uint32); ok {
 			if float64(n) < min || max < float64(n) {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
 		} else if n, ok := i.(uint64); ok {
+			if float64(n) < min || max < float64(n) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else if n, ok := i.(float32); ok {
 			if float64(n) < min || max < float64(n) {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
@@ -52,7 +91,20 @@ func NumRange(min, max float64) Validator {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
 		} else {
-			return fmt.Errorf("expected int or uint")
+			return fmt.Errorf("expected integer or floating point")
+		}
+		return nil
+	}
+}
+
+func DateRange(min, max time.Time) Validator {
+	return func(i interface{}) error {
+		if t, ok := i.(time.Time); ok {
+			if t.Before(min) || t.After(max) {
+				return fmt.Errorf("out of range [%v,%v]", min, max)
+			}
+		} else {
+			return fmt.Errorf("expected timestamp")
 		}
 		return nil
 	}
@@ -229,6 +281,14 @@ Prompt:
 func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Validator) error {
 	first := true
 
+	// get destination
+	dst := reflect.ValueOf(idst)
+	if dst.Kind() != reflect.Pointer {
+		return fmt.Errorf("destination must be pointer to variable")
+	}
+	dst = dst.Elem()
+	idst = dst.Interface()
+
 Prompt:
 	// prompt input
 	if ideflt == nil || reflect.ValueOf(ideflt).IsZero() {
@@ -242,22 +302,14 @@ Prompt:
 		res = strings.TrimSpace(scanner.Text())
 	}
 
-	// get destination
-	dst := reflect.ValueOf(idst)
-	if dst.Kind() != reflect.Pointer {
-		return fmt.Errorf("destination must be pointer to variable")
-	}
-	dst = dst.Elem()
-	kind := dst.Kind()
-
 	// fill destination
 	var err error
 	ival := ideflt
 	if res != "" || ival == nil {
-		switch kind {
-		case reflect.String:
+		switch idst.(type) {
+		case string:
 			ival = res
-		case reflect.Bool:
+		case bool:
 			var b bool
 			if res == "y" || res == "Y" || res == "yes" || res == "YES" {
 				b = true
@@ -271,58 +323,106 @@ Prompt:
 				}
 			}
 			ival = b
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			var max int64 = math.MaxInt64
-			if kind == reflect.Int {
-				max = math.MaxInt
-			} else if kind == reflect.Int8 {
-				max = math.MaxInt8
-			} else if kind == reflect.Int16 {
-				max = math.MaxInt16
-			} else if kind == reflect.Int32 {
-				max = math.MaxInt32
-			}
-
+		case int:
 			i, perr := strconv.ParseInt(res, 10, 64)
 			if perr != nil {
 				err = fmt.Errorf("invalid integer")
-			} else if max < i {
+			} else if math.MaxInt < i {
 				err = fmt.Errorf("integer overflow")
 			}
-			ival = i
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			var max uint64 = math.MaxUint64
-			if kind == reflect.Uint {
-				max = math.MaxUint
-			} else if kind == reflect.Uint8 {
-				max = math.MaxUint8
-			} else if kind == reflect.Uint16 {
-				max = math.MaxUint16
-			} else if kind == reflect.Uint32 {
-				max = math.MaxUint32
+			ival = int(i)
+		case int8:
+			i, perr := strconv.ParseInt(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid integer")
+			} else if math.MaxInt8 < i {
+				err = fmt.Errorf("integer overflow")
 			}
-
+			ival = int8(i)
+		case int16:
+			i, perr := strconv.ParseInt(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid integer")
+			} else if math.MaxInt16 < i {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = int16(i)
+		case int32:
+			i, perr := strconv.ParseInt(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid integer")
+			} else if math.MaxInt64 < i {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = int32(i)
+		case int64:
+			i, perr := strconv.ParseInt(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid integer")
+			}
+			ival = i
+		case uint:
 			u, perr := strconv.ParseUint(res, 10, 64)
 			if perr != nil {
 				err = fmt.Errorf("invalid positive integer")
-			} else if max < u {
-				err = fmt.Errorf("unsigned integer overflow")
+			} else if math.MaxInt < u {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = uint(u)
+		case uint8:
+			u, perr := strconv.ParseUint(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid positive integer")
+			} else if math.MaxInt8 < u {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = uint8(u)
+		case uint16:
+			u, perr := strconv.ParseUint(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid positive integer")
+			} else if math.MaxInt16 < u {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = uint16(u)
+		case uint32:
+			u, perr := strconv.ParseUint(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid positive integer")
+			} else if math.MaxInt64 < u {
+				err = fmt.Errorf("integer overflow")
+			}
+			ival = uint32(u)
+		case uint64:
+			u, perr := strconv.ParseUint(res, 10, 64)
+			if perr != nil {
+				err = fmt.Errorf("invalid positive integer")
 			}
 			ival = u
-		case reflect.Float32, reflect.Float64:
-			bitsize := 64
-			if kind == reflect.Float32 {
-				bitsize = 32
+		case float32:
+			f, perr := strconv.ParseFloat(res, 32)
+			if perr.(*strconv.NumError).Err == strconv.ErrRange {
+				err = fmt.Errorf("floating point overflow")
+			} else if perr != nil {
+				err = fmt.Errorf("invalid floating point")
 			}
-			f, perr := strconv.ParseFloat(res, bitsize)
+			ival = float32(f)
+		case float64:
+			f, perr := strconv.ParseFloat(res, 64)
 			if perr.(*strconv.NumError).Err == strconv.ErrRange {
 				err = fmt.Errorf("floating point overflow")
 			} else if perr != nil {
 				err = fmt.Errorf("invalid floating point")
 			}
 			ival = f
+		case time.Time:
+			t, perr := dateparse.ParseAny(res)
+			if perr != nil {
+				err = fmt.Errorf("invalid datetime")
+			}
+			ival = t
 		default:
-			return fmt.Errorf("unsupported destination type: %v", kind)
+			return fmt.Errorf("unsupported destination type: %T", idst)
 		}
 	}
 
@@ -343,27 +443,6 @@ Prompt:
 		goto Prompt
 	} else if !first {
 		fmt.Printf(escClearLine)
-	}
-
-	switch kind {
-	case reflect.Int:
-		ival = int(ival.(int64))
-	case reflect.Int8:
-		ival = int8(ival.(int64))
-	case reflect.Int16:
-		ival = int16(ival.(int64))
-	case reflect.Int32:
-		ival = int32(ival.(int64))
-	case reflect.Uint:
-		ival = uint(ival.(uint64))
-	case reflect.Uint8:
-		ival = uint8(ival.(uint64))
-	case reflect.Uint16:
-		ival = uint16(ival.(uint64))
-	case reflect.Uint32:
-		ival = uint32(ival.(uint64))
-	case reflect.Float32:
-		ival = float32(ival.(float64))
 	}
 	dst.Set(reflect.ValueOf(ival))
 	return nil
