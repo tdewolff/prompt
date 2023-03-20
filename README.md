@@ -1,5 +1,9 @@
 # Command line prompter
-Command line prompter for terminal user interaction.
+Command line prompter for terminal user interaction with the following features:
+
+- user input into `string`, `bool`, `int`, `float64`, ...
+- yes/no prompt
+- select prompt with options
 
 *See also [github.com/tdewolff/argp](https://github.com/tdewolff/argp) for a command line argument parser.*
 

@@ -301,7 +301,17 @@ Prompt:
 			} else if max < i {
 				err = fmt.Errorf("integer overflow")
 			}
-			ival = i
+			if kind == reflect.Int {
+				ival = int(i)
+			} else if kind == reflect.Int8 {
+				ival = int8(i)
+			} else if kind == reflect.Int16 {
+				ival = int16(i)
+			} else if kind == reflect.Int32 {
+				ival = int32(i)
+			} else {
+				ival = i
+			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			var max uint64 = math.MaxUint64
 			if kind == reflect.Uint {
@@ -316,11 +326,21 @@ Prompt:
 
 			u, perr := strconv.ParseUint(res, 10, 64)
 			if perr != nil {
-				err = fmt.Errorf("invalid unsigned integer")
+				err = fmt.Errorf("invalid positive integer")
 			} else if max < u {
 				err = fmt.Errorf("unsigned integer overflow")
 			}
-			ival = u
+			if kind == reflect.Uint {
+				ival = uint(u)
+			} else if kind == reflect.Uint8 {
+				ival = uint8(u)
+			} else if kind == reflect.Uint16 {
+				ival = uint16(u)
+			} else if kind == reflect.Uint32 {
+				ival = uint32(u)
+			} else {
+				ival = u
+			}
 		case reflect.Float32, reflect.Float64:
 			bitsize := 64
 			if kind == reflect.Float32 {
@@ -332,7 +352,11 @@ Prompt:
 			} else if perr != nil {
 				err = fmt.Errorf("invalid floating point")
 			}
-			ival = f
+			if kind == reflect.Float32 {
+				ival = float32(f)
+			} else {
+				ival = f
+			}
 		default:
 			return fmt.Errorf("unsupported destination type: %v", kind)
 		}
