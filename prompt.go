@@ -235,14 +235,30 @@ func File() Validator {
 	}
 }
 
+func EmptyOr(validator Validator) Validator {
+	return func(i interface{}) error {
+		if s, ok := i.(string); ok && s == "" {
+			return nil
+		}
+		return validator(i)
+	}
+}
+
+func Enter(label string) {
+	fmt.Printf("%v [enter]: ", label)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+}
+
 func YesNo(label string, deflt bool) bool {
 	first := true
 
 Prompt:
 	if deflt {
-		fmt.Printf("%v (Y/n): ", label)
+		fmt.Printf("%v [Y/n]: ", label)
 	} else {
-		fmt.Printf("%v (y/N): ", label)
+		fmt.Printf("%v [y/N]: ", label)
 	}
 
 	var res string
@@ -452,6 +468,24 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 	var selected int
 	if i, ok := iselected.(int); ok {
 		selected = i
+	} else if i, ok := iselected.(int8); ok {
+		selected = int(i)
+	} else if i, ok := iselected.(int16); ok {
+		selected = int(i)
+	} else if i, ok := iselected.(int32); ok {
+		selected = int(i)
+	} else if i, ok := iselected.(int64); ok {
+		selected = int(i)
+	} else if u, ok := iselected.(uint); ok {
+		selected = int(u)
+	} else if u, ok := iselected.(uint8); ok {
+		selected = int(u)
+	} else if u, ok := iselected.(uint16); ok {
+		selected = int(u)
+	} else if u, ok := iselected.(uint32); ok {
+		selected = int(u)
+	} else if u, ok := iselected.(uint64); ok {
+		selected = int(u)
 	} else if s, ok := iselected.(string); ok {
 		for i, option := range options {
 			if option == s {
@@ -460,7 +494,7 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 			}
 		}
 	} else {
-		return fmt.Errorf("selected must be int or string")
+		return fmt.Errorf("selected must be integer or string")
 	}
 
 	if len(options) == 0 {
