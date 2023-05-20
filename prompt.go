@@ -480,10 +480,6 @@ Prompt:
 		}
 	}
 
-	if label == "Price" {
-		return fmt.Errorf("test")
-	}
-
 	if err != nil {
 		first = false
 		fmt.Printf("%v%v%vERROR: %v%v%v", escClearLine, escRed, escBold, err, escReset, escMoveUp)
