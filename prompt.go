@@ -235,6 +235,26 @@ func File() Validator {
 	}
 }
 
+func In(list interface{}) Validator {
+	vlist := reflect.ValueOf(list)
+	if vlist.Kind() != reflect.Slice {
+		panic("list must be a slice")
+	}
+	elemType := vlist.Type().Elem()
+	return func(i interface{}) error {
+		v := reflect.ValueOf(i)
+		if v.Type() != elemType {
+			return fmt.Errorf("expected %v", elemType.Name())
+		}
+		for j := 0; j < vlist.Len(); j++ {
+			if vlist.Index(j).Equal(v) {
+				return nil
+			}
+		}
+		return fmt.Errorf("not available")
+	}
+}
+
 func EmptyOr(validator Validator) Validator {
 	return func(i interface{}) error {
 		if s, ok := i.(string); ok && s == "" {
@@ -285,7 +305,7 @@ Prompt:
 	}
 	if err != nil {
 		first = false
-		fmt.Printf("%v%vERROR: %v%v%v", escRed, escBold, err, escReset, escMoveUp)
+		fmt.Printf("%v%v%vERROR: %v%v%v", escClearLine, escRed, escBold, err, escReset, escMoveUp)
 		clearlines(1)
 		goto Prompt
 	} else if !first {
@@ -302,8 +322,7 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 	if dst.Kind() != reflect.Pointer {
 		return fmt.Errorf("destination must be pointer to variable")
 	}
-	dst = dst.Elem()
-	idst = dst.Interface()
+	idst = dst.Elem().Interface()
 
 Prompt:
 	// prompt input
@@ -438,7 +457,16 @@ Prompt:
 			}
 			ival = t
 		default:
-			return fmt.Errorf("unsupported destination type: %T", idst)
+			if scanner, ok := dst.Interface().(interface {
+				Scan(interface{}) error
+			}); ok {
+				if perr := scanner.Scan(res); perr != nil {
+					err = fmt.Errorf("invalid %T: %w", idst, perr)
+				}
+				ival = nil
+			} else {
+				return fmt.Errorf("unsupported destination type: %T", idst)
+			}
 		}
 	}
 
@@ -452,21 +480,47 @@ Prompt:
 		}
 	}
 
+	if label == "Price" {
+		return fmt.Errorf("test")
+	}
+
 	if err != nil {
 		first = false
-		fmt.Printf("%v%vERROR: %v%v%v", escRed, escBold, err, escReset, escMoveUp)
+		fmt.Printf("%v%v%vERROR: %v%v%v", escClearLine, escRed, escBold, err, escReset, escMoveUp)
 		clearlines(1)
 		goto Prompt
 	} else if !first {
 		fmt.Printf(escClearLine)
 	}
-	dst.Set(reflect.ValueOf(ival))
+	if ival != nil {
+		// otherwise already set using the Scanner interface
+		dst.Elem().Set(reflect.ValueOf(ival))
+	}
 	return nil
 }
 
-func Select(idst interface{}, label string, options []string, iselected interface{}) error {
+func Select(idst interface{}, label string, ioptions interface{}, iselected interface{}) error {
+	dst := reflect.ValueOf(idst)
+	if dst.Kind() != reflect.Pointer {
+		return fmt.Errorf("destination must be pointer to variable")
+	}
+	dst = dst.Elem()
+
+	options := reflect.ValueOf(ioptions)
+	if options.Kind() != reflect.Slice {
+		return fmt.Errorf("options must be slice")
+	}
+
 	var selected int
-	if i, ok := iselected.(int); ok {
+	if reflect.TypeOf(iselected) == options.Type().Elem() {
+		vselected := reflect.ValueOf(iselected)
+		for i := 0; i < options.Len(); i++ {
+			if options.Index(i).Equal(vselected) {
+				selected = i
+				break
+			}
+		}
+	} else if i, ok := iselected.(int); ok {
 		selected = i
 	} else if i, ok := iselected.(int8); ok {
 		selected = int(i)
@@ -486,30 +540,24 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 		selected = int(u)
 	} else if u, ok := iselected.(uint64); ok {
 		selected = int(u)
-	} else if s, ok := iselected.(string); ok {
-		for i, option := range options {
-			if option == s {
-				selected = i
-				break
-			}
-		}
 	} else {
-		return fmt.Errorf("selected must be integer or string")
+		return fmt.Errorf("selected must be integer type or %v", options.Type().Elem().Name())
 	}
 
-	if len(options) == 0 {
+	if options.Len() == 0 {
 		return fmt.Errorf("no options")
-	} else if 256 <= len(options) {
+	} else if 256 <= options.Len() {
 		return fmt.Errorf("too many options")
 	} else if selected < 0 {
 		selected = 0
-	} else if len(options) <= selected {
-		selected = len(options) - 1
+	} else if options.Len() <= selected {
+		selected = options.Len() - 1
 	}
 
 	// print options
 	fmt.Printf("%v:", label)
-	for i, opt := range options {
+	for i := 0; i < options.Len(); i++ {
+		opt := options.Index(i).Interface()
 		if i == selected {
 			fmt.Printf("\n"+OptionSelected, opt)
 		} else {
@@ -518,7 +566,7 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 	}
 
 	// go to selected option
-	fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, len(options)-1-selected))
+	fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, options.Len()-1-selected))
 
 	// hide input
 	restore, err := MakeRaw()
@@ -551,32 +599,32 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 		} else if r == '\x04' || r == '\r' || r == '\n' { // select
 			break
 		} else if selected != 0 && (key == 'A' || r == 'w' || r == 'k') { // up
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options[selected])
+			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveUp)
 			selected--
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options[selected])
-		} else if selected != len(options)-1 && (key == 'B' || r == 's' || r == 'j' || r == '\t') { // down
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options[selected])
+			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
+		} else if selected != options.Len()-1 && (key == 'B' || r == 's' || r == 'j' || r == '\t') { // down
+			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveDown)
 			selected++
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options[selected])
-		} else if key == 'H' || selected == len(options)-1 && r == '\t' { // home
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options[selected])
+			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
+		} else if key == 'H' || selected == options.Len()-1 && r == '\t' { // home
+			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(strings.Repeat(escMoveUp, selected))
 			selected = 0
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options[selected])
+			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
 		} else if key == 'F' { // end
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options[selected])
-			fmt.Printf(strings.Repeat(escMoveDown, len(options)-1-selected))
-			selected = len(options) - 1
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options[selected])
+			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
+			fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
+			selected = options.Len() - 1
+			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
 		}
 	}
 	restore()
 
 	// go to bottom and clear output
-	fmt.Printf(strings.Repeat(escMoveDown, len(options)-1-selected))
-	clearlines(len(options) + 1)
+	fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
+	clearlines(options.Len() + 1)
 
 	fmt.Printf("%v: ", label)
 	if err != nil {
@@ -586,22 +634,19 @@ func Select(idst interface{}, label string, options []string, iselected interfac
 		}
 		return err
 	}
-	fmt.Printf("%v\n", options[selected])
+	fmt.Printf("%v\n", options.Index(selected).Interface())
 
-	dst := reflect.ValueOf(idst)
-	if dst.Kind() != reflect.Pointer {
-		return fmt.Errorf("destination must be pointer to variable")
-	}
-	dst = dst.Elem()
-	switch kind := dst.Kind(); kind {
-	case reflect.String:
-		dst.SetString(options[selected])
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		dst.SetUint(uint64(selected))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		dst.SetInt(int64(selected))
-	default:
-		return fmt.Errorf("unsupported destination type: %v", kind)
+	if dst.Type() == options.Type().Elem() {
+		dst.Set(options.Index(selected))
+	} else {
+		switch kind := dst.Kind(); kind {
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			dst.SetUint(uint64(selected))
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			dst.SetInt(int64(selected))
+		default:
+			return fmt.Errorf("unsupported destination type: %v", kind)
+		}
 	}
 	return nil
 }
