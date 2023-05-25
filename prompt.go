@@ -18,6 +18,7 @@ import (
 var OptionSelected = fmt.Sprintf("  %v[\u00D7] %%v%v", escBold, escReset)
 var OptionUnselected = "  [ ] %v"
 var KeyInterrupt = fmt.Errorf("interrupt")
+var KeyEscape = fmt.Errorf("escape")
 
 func clearlines(n int) {
 	fmt.Printf(escMoveStart + escClearLine + strings.Repeat(escMoveUp+escClearLine, n-1))
@@ -27,14 +28,18 @@ type Validator func(interface{}) error
 
 func StrLength(min, max int) Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if len(s) < min {
-				return fmt.Errorf("too short, minimum is %v", min)
-			} else if max != -1 && max < len(s) {
-				return fmt.Errorf("too long, maximum is %v", max)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if len(str) < min {
+			return fmt.Errorf("too short, minimum is %v", min)
+		} else if max != -1 && max < len(str) {
+			return fmt.Errorf("too long, maximum is %v", max)
 		}
 		return nil
 	}
@@ -42,56 +47,40 @@ func StrLength(min, max int) Validator {
 
 func NumRange(min, max float64) Validator {
 	return func(i interface{}) error {
+		var num float64
 		if n, ok := i.(int); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(int8); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(int16); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(int32); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(int64); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(uint); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(uint8); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(uint16); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(uint32); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(uint64); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(float32); ok {
-			if float64(n) < min || max < float64(n) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = float64(n)
 		} else if n, ok := i.(float64); ok {
-			if n < min || max < n {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
+			num = n
+		} else if inter, ok := i.(interface{ Int64() int64 }); ok {
+			num = float64(inter.Int64())
+		} else if floater, ok := i.(interface{ Float64() float64 }); ok {
+			num = floater.Float64()
 		} else {
 			return fmt.Errorf("expected integer or floating point")
+		}
+		if num < min || max < num {
+			return fmt.Errorf("out of range [%v,%v]", min, max)
 		}
 		return nil
 	}
@@ -112,12 +101,16 @@ func DateRange(min, max time.Time) Validator {
 
 func Prefix(afix string) Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if !strings.HasPrefix(s, afix) {
-				return fmt.Errorf("expected prefix '%v'", afix)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if !strings.HasPrefix(str, afix) {
+			return fmt.Errorf("expected prefix '%v'", afix)
 		}
 		return nil
 	}
@@ -125,12 +118,16 @@ func Prefix(afix string) Validator {
 
 func Suffix(afix string) Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if !strings.HasSuffix(s, afix) {
-				return fmt.Errorf("expected suffix '%v'", afix)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if !strings.HasSuffix(str, afix) {
+			return fmt.Errorf("expected suffix '%v'", afix)
 		}
 		return nil
 	}
@@ -139,12 +136,16 @@ func Suffix(afix string) Validator {
 func Pattern(pattern, message string) Validator {
 	re := regexp.MustCompile(pattern)
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if !re.MatchString(s) {
-				return fmt.Errorf(message)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if !re.MatchString(str) {
+			return fmt.Errorf(message)
 		}
 		return nil
 	}
@@ -192,14 +193,18 @@ func DomainName() Validator {
 
 func StrNot(items []string) Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			for _, item := range items {
-				if item == s {
-					return fmt.Errorf("unavailable: %v", s)
-				}
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		for _, item := range items {
+			if item == str {
+				return fmt.Errorf("unavailable: %v", str)
+			}
 		}
 		return nil
 	}
@@ -207,14 +212,18 @@ func StrNot(items []string) Validator {
 
 func Dir() Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if info, err := os.Stat(s); err != nil {
-				return fmt.Errorf("file not found: %v", s)
-			} else if !info.Mode().IsDir() {
-				return fmt.Errorf("path is not regular file: %v", s)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if info, err := os.Stat(str); err != nil {
+			return fmt.Errorf("file not found: %v", str)
+		} else if !info.Mode().IsDir() {
+			return fmt.Errorf("path is not regular file: %v", str)
 		}
 		return nil
 	}
@@ -222,14 +231,18 @@ func Dir() Validator {
 
 func File() Validator {
 	return func(i interface{}) error {
+		var str string
 		if s, ok := i.(string); ok {
-			if info, err := os.Stat(s); err != nil {
-				return fmt.Errorf("file not found: %v", s)
-			} else if !info.Mode().IsRegular() {
-				return fmt.Errorf("path is not regular file: %v", s)
-			}
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
 		} else {
 			return fmt.Errorf("expected string")
+		}
+		if info, err := os.Stat(str); err != nil {
+			return fmt.Errorf("file not found: %v", str)
+		} else if !info.Mode().IsRegular() {
+			return fmt.Errorf("path is not regular file: %v", str)
 		}
 		return nil
 	}
@@ -255,12 +268,35 @@ func In(list interface{}) Validator {
 	}
 }
 
-func EmptyOr(validator Validator) Validator {
+func StrIs(target string) Validator {
 	return func(i interface{}) error {
-		if s, ok := i.(string); ok && s == "" {
+		var str string
+		if s, ok := i.(string); ok {
+			str = s
+		} else if stringer, ok := i.(interface{ String() string }); ok {
+			str = stringer.String()
+		} else {
+			return fmt.Errorf("expected string")
+		}
+		if str != target {
+			if target == "" {
+				return fmt.Errorf("expected empty string")
+			} else {
+				return fmt.Errorf("expected '%v'", target)
+			}
+		}
+		return nil
+	}
+}
+
+func Or(validatorA, validatorB Validator) Validator {
+	return func(i interface{}) error {
+		errA := validatorA(i)
+		errB := validatorB(i)
+		if errA == nil || errB == nil {
 			return nil
 		}
-		return validator(i)
+		return fmt.Errorf("%w & %w", errA, errB)
 	}
 }
 
@@ -324,23 +360,163 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 	}
 	idst = dst.Elem().Interface()
 
+	editDefault := false
+	switch ideflt.(type) {
+	case nil:
+	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, time.Time:
+		editDefault = true
+	default:
+		if _, ok := ideflt.(interface {
+			String() string
+		}); ok {
+			editDefault = true
+		} else if _, ok := reflect.Zero(reflect.PtrTo(reflect.TypeOf(ideflt))).Interface().(interface {
+			String() string
+		}); ok {
+			editDefault = true
+		}
+	}
+
+	pos := 0
+	var result []rune
+	if editDefault {
+		result = []rune(fmt.Sprint(ideflt))
+		pos = len(result)
+	}
+
 Prompt:
 	// prompt input
-	if ideflt == nil || reflect.ValueOf(ideflt).IsZero() {
-		fmt.Printf("%v: ", label)
+	if _, ok := idst.(bool); ok {
+		if deflt, ok := ideflt.(bool); ok {
+			if deflt {
+				fmt.Printf("%v [Y/n]: ", label)
+			} else {
+				fmt.Printf("%v [y/N]: ", label)
+			}
+		} else {
+			fmt.Printf("%v [y/n]: ", label)
+		}
 	} else {
-		fmt.Printf("%v (%v): ", label, ideflt)
+		fmt.Printf("%v: %v", label, string(result))
+		fmt.Printf(strings.Repeat(escMoveLeft, len(result)-pos))
 	}
-	var res string
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		res = strings.TrimSpace(scanner.Text())
+
+	// make raw and hide input
+	restore, err := MakeRaw(false)
+	if err != nil {
+		return err
+	}
+
+	// read input
+	input := bufio.NewReader(os.Stdin)
+	for {
+		var r rune
+		if r, _, err = input.ReadRune(); err != nil {
+			break
+		}
+
+		if r == '\x03' { // interrupt
+			err = KeyInterrupt
+			break
+		} else if r == '\x04' || r == '\r' || r == '\n' { // select
+			break
+		} else if r == '\x7F' { // backspace
+			if pos != 0 {
+				result = append(result[:pos-1], result[pos:]...)
+				pos--
+				fmt.Printf(escMoveLeft + string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+			}
+		} else if r == '\x1B' { // escape
+			if input.Buffered() == 0 {
+				err = KeyEscape
+				break
+			} else if r, _, err = input.ReadRune(); err != nil {
+				break
+			} else if r == '[' { // CSI
+				if input.Buffered() == 0 {
+					// ignore
+				} else if r, _, err = input.ReadRune(); err != nil {
+					break
+				} else if r == 'D' { // left
+					if pos != 0 {
+						fmt.Printf(escMoveLeft)
+						pos--
+					}
+				} else if r == 'C' { // right
+					if pos != len(result) {
+						fmt.Printf(escMoveRight)
+						pos++
+					}
+				} else if r == 'H' { // home
+					fmt.Printf(strings.Repeat(escMoveLeft, pos))
+					pos = 0
+				} else if r == 'F' { // end
+					fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
+					pos = len(result)
+				} else if r == '3' {
+					if input.Buffered() == 0 {
+						// ignore
+					} else if r, _, err = input.ReadRune(); err != nil {
+						break
+					} else if r == '~' { // delete
+						if pos != len(result) {
+
+							result = append(result[:pos], result[pos+1:]...)
+							fmt.Printf(string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+						}
+					}
+				}
+			} else {
+				fmt.Println(r)
+			}
+		} else if r == '\x01' { // Ctrl+A - move to start of line
+			fmt.Printf(strings.Repeat(escMoveLeft, pos))
+			pos = 0
+		} else if r == '\x02' { // Ctrl+B - move back
+			fmt.Printf(escMoveLeft)
+			pos--
+		} else if r == '\x05' { // Ctrl+E - move to end of line
+			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
+			pos = len(result)
+		} else if r == '\x06' { // Ctrl+F - move forward
+			fmt.Printf(escMoveRight)
+			pos++
+		} else if r == '\x0B' { // Ctrl+K - delete to end of line
+			fmt.Printf(strings.Repeat(" ", len(result)-pos))
+			fmt.Printf(strings.Repeat(escMoveLeft, len(result)-pos))
+			result = result[:pos]
+		} else if r == '\x15' { // Ctrl+U - delete to start of line
+			fmt.Printf(strings.Repeat(escMoveLeft, pos))
+			fmt.Printf(string(result[pos:]) + strings.Repeat(" ", pos))
+			fmt.Printf(strings.Repeat(escMoveLeft, len(result)))
+			result = result[pos:]
+			pos = 0
+		} else if ' ' <= r {
+			result = append(result[:pos], append([]rune{r}, result[pos:]...)...)
+			fmt.Printf(string(result[pos:]) + strings.Repeat(escMoveLeft, len(result)-pos-1))
+			pos++
+		} else {
+			fmt.Print(r)
+		}
+	}
+	restore()
+
+	fmt.Println(escMoveStart)
+
+	if err != nil {
+		if err == KeyInterrupt {
+			fmt.Printf("^C")
+			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+		} else if err == KeyEscape {
+			return nil
+		}
+		return err
 	}
 
 	// fill destination
-	var err error
+	res := strings.TrimSpace(string(result))
 	ival := ideflt
-	if res != "" || ival == nil {
+	if editDefault || res != "" || ival == nil {
 		switch idst.(type) {
 		case string:
 			ival = res
@@ -460,10 +636,11 @@ Prompt:
 			if scanner, ok := dst.Interface().(interface {
 				Scan(interface{}) error
 			}); ok {
+				// already sets value to dst
 				if perr := scanner.Scan(res); perr != nil {
 					err = fmt.Errorf("invalid %T: %w", idst, perr)
 				}
-				ival = nil
+				ival = dst.Elem().Interface()
 			} else {
 				return fmt.Errorf("unsupported destination type: %T", idst)
 			}
@@ -488,10 +665,7 @@ Prompt:
 	} else if !first {
 		fmt.Printf(escClearLine)
 	}
-	if ival != nil {
-		// otherwise already set using the Scanner interface
-		dst.Elem().Set(reflect.ValueOf(ival))
-	}
+	dst.Elem().Set(reflect.ValueOf(ival))
 	return nil
 }
 
@@ -537,7 +711,7 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 	} else if u, ok := iselected.(uint64); ok {
 		selected = int(u)
 	} else {
-		return fmt.Errorf("selected must be integer type or %v", options.Type().Elem().Name())
+		return fmt.Errorf("selected must be integer type or %v", options.Type().Elem())
 	}
 
 	if options.Len() == 0 {
@@ -564,8 +738,8 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 	// go to selected option
 	fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, options.Len()-1-selected))
 
-	// hide input
-	restore, err := MakeRaw()
+	// make raw and hide input
+	restore, err := MakeRaw(true)
 	if err != nil {
 		return err
 	}
@@ -573,16 +747,17 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 	// read input
 	input := bufio.NewReader(os.Stdin)
 	for {
-		var r, key rune
-		r, _, err = input.ReadRune()
-		if err != nil {
+		var r, csi rune
+		if r, _, err = input.ReadRune(); err != nil {
 			break
 		} else if r == '\x1B' { // escape
-			key, _, err = input.ReadRune()
-			if err != nil {
+			if input.Buffered() == 0 {
+				err = KeyEscape
 				break
-			} else if key == '[' {
-				key, _, err = input.ReadRune()
+			} else if r, _, err = input.ReadRune(); err != nil {
+				break
+			} else if r == '[' {
+				csi, _, err = input.ReadRune()
 				if err != nil {
 					break
 				}
@@ -594,22 +769,22 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 			break
 		} else if r == '\x04' || r == '\r' || r == '\n' { // select
 			break
-		} else if selected != 0 && (key == 'A' || r == 'w' || r == 'k') { // up
+		} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k') { // up
 			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveUp)
 			selected--
 			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
-		} else if selected != options.Len()-1 && (key == 'B' || r == 's' || r == 'j' || r == '\t') { // down
+		} else if selected != options.Len()-1 && (csi == 'B' || r == 's' || r == 'j' || r == '\t') { // down
 			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveDown)
 			selected++
 			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
-		} else if key == 'H' || selected == options.Len()-1 && r == '\t' { // home
+		} else if csi == 'H' || selected == options.Len()-1 && r == '\t' { // home
 			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(strings.Repeat(escMoveUp, selected))
 			selected = 0
 			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
-		} else if key == 'F' { // end
+		} else if csi == 'F' { // end
 			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
 			fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
 			selected = options.Len() - 1
@@ -627,6 +802,8 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 		if err == KeyInterrupt {
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+		} else if err == KeyEscape {
+			return nil
 		}
 		return err
 	}

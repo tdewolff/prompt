@@ -13,6 +13,8 @@ var (
 	escClearLine = "\x1B[2K"
 	escMoveUp    = "\x1B[1A"
 	escMoveDown  = "\x1B[1B"
+	escMoveLeft  = "\x1B[1D"
+	escMoveRight = "\x1B[1C"
 	escMoveStart = "\x1B[G"
 	escBold      = "\x1B[1m"
 	escRed       = "\x1B[31m"
@@ -21,10 +23,15 @@ var (
 	escHide      = "\x1B[?25l"
 )
 
-func MakeRaw() (func() error, error) {
-	fmt.Printf(escHide)
+func MakeRaw(hide bool) (func() error, error) {
+	if hide {
+		fmt.Printf(escHide)
+	}
 	oldState := syscall.Termios{}
 	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(os.Stdin.Fd()), syscall.TCGETS, uintptr(unsafe.Pointer(&oldState)), 0, 0, 0); err != 0 {
+		if hide {
+			fmt.Printf(escShow)
+		}
 		return nil, err
 	}
 
@@ -37,15 +44,22 @@ func MakeRaw() (func() error, error) {
 	newState.Cc[syscall.VTIME] = 0
 
 	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(os.Stdin.Fd()), syscall.TCSETS, uintptr(unsafe.Pointer(&newState)), 0, 0, 0); err != 0 {
+		if hide {
+			fmt.Printf(escShow)
+		}
 		return nil, err
 	}
 
 	return func() error {
 		if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(os.Stdin.Fd()), syscall.TCSETS, uintptr(unsafe.Pointer(&oldState)), 0, 0, 0); err != 0 {
-			fmt.Printf(escShow)
+			if hide {
+				fmt.Printf(escShow)
+			}
 			return err
 		}
-		fmt.Printf(escShow)
+		if hide {
+			fmt.Printf(escShow)
+		}
 		return nil
 	}, nil
 }
