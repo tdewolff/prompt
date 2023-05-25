@@ -350,6 +350,29 @@ Prompt:
 	return b
 }
 
+type defaultValue struct {
+	str string
+	pos int
+}
+
+// Default is the default value with the initial text caret position.
+func Default(str string, pos int) defaultValue {
+	if pos < 0 {
+		pos = 0
+	} else if len(str) < pos {
+		pos = len(str)
+	}
+	return defaultValue{str, pos}
+}
+
+func (def defaultValue) String() string {
+	return def.str
+}
+
+func (def defaultValue) Pos() int {
+	return def.pos
+}
+
 func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Validator) error {
 	first := true
 
@@ -370,10 +393,6 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 			String() string
 		}); ok {
 			editDefault = true
-		} else if _, ok := reflect.Zero(reflect.PtrTo(reflect.TypeOf(ideflt))).Interface().(interface {
-			String() string
-		}); ok {
-			editDefault = true
 		}
 	}
 
@@ -381,7 +400,13 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 	var result []rune
 	if editDefault {
 		result = []rune(fmt.Sprint(ideflt))
-		pos = len(result)
+		if poser, ok := ideflt.(interface {
+			Pos() int
+		}); ok {
+			pos = poser.Pos()
+		} else {
+			pos = len(result)
+		}
 	}
 
 Prompt:

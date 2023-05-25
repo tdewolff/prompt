@@ -41,7 +41,7 @@ func main() {
 	var language Language
 	var smoker bool
 	var car string
-	if err := prompt.Prompt(&name, "Name", "Juan", prompt.StrLength(3, -1)); err != nil {
+	if err := prompt.Prompt(&name, "Name", prompt.Default("Juan", 2), prompt.StrLength(3, -1)); err != nil {
 		panic(err)
 	}
 	if err := prompt.Prompt(&age, "Age (18-65)", nil, prompt.NumRange(18, 65)); err != nil {
