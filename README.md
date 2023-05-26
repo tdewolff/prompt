@@ -45,7 +45,7 @@ func main() {
 }
 ```
 
-where `val` can be of any primary type, such as `string`, `bool`, `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, or `float64`.
+where `val` can be of any primary type, such as `string`, `[]byte`, `bool`, `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, `float64`, or `time.Time`.
 
 When the value is editable it allowd users to use keys such as: <kbd>Left</kbd>, <kbd>Ctrl</kbd> + <kbd>B</kbd> to move left; <kbd>Right</kbd>, <kbd>Ctrl</kbd> + <kbd>F</kbd> to move right; <kbd>Home</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd> to go to start; <kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>E</kbd> to go to end; <kbd>Backspace</kbd> and <kbd>Delete</kbd> to delete a character; <kbd>Ctrl</kbd> + <kbd>K</kbd> and <kbd>Ctrl</kbd> + <kbd>U</kbd> to delete from the caret to the start and end of the input respectively; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to confirm input; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
 
