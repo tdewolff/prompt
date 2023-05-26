@@ -1,9 +1,11 @@
 # Command line prompter
 Command line prompter for terminal user interaction with the following features:
 
-- user input into `string`, `bool`, `int`, `float64`, ...
-- yes/no prompt
+- input prompt scans into any variable type (`string`, `bool`, `int`, `time.Time`, ..., or custom types)
+- input is editable in-place
 - select prompt with options
+- enter and yes/no prompt
+- input validation
 
 *See also [github.com/tdewolff/argp](https://github.com/tdewolff/argp) for a command line argument parser.*
 
