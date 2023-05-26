@@ -112,6 +112,7 @@ Not(Validator)     // logical NOT
 And(Validator...)  // logical AND
 Or(Validator...)   // logical OR
 
+Is(any)       // is exact match
 In([]any)     // in list
 NotIn([]any)  // not in list
 

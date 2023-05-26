@@ -253,6 +253,20 @@ func File() Validator {
 	}
 }
 
+// Is matches if the input matches the given value.
+func Is(elem interface{}) Validator {
+	velem := reflect.ValueOf(elem)
+	return func(i interface{}) error {
+		v := reflect.ValueOf(i)
+		if v.Type() != velem.Type() {
+			return fmt.Errorf("expected %v", velem.Type().Name())
+		} else if !velem.Equal(v) {
+			return fmt.Errorf("expected '%v'", elem)
+		}
+		return nil
+	}
+}
+
 // In matches if the input matches any element of the list.
 func In(list interface{}) Validator {
 	vlist := reflect.ValueOf(list)
@@ -331,7 +345,7 @@ func Or(validators ...Validator) Validator {
 				return nil
 			}
 		}
-		return validators[0](i)
+		return fmt.Errorf("not available")
 	}
 }
 
@@ -581,7 +595,7 @@ Prompt:
 			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos) + "^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		} else if err == keyEscape {
-			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos) + "^[\n")
+			fmt.Printf("\n")
 			return nil
 		}
 		fmt.Printf("\n")
@@ -888,7 +902,7 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		} else if err == keyEscape {
-			fmt.Printf("^[\n")
+			fmt.Printf("\n")
 			return nil
 		}
 		fmt.Printf("\n")
