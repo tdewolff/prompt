@@ -50,7 +50,7 @@ where `val` can be of any primary type, such as `string`, `bool`, `int`, `int8`,
 When the value is editable it allowd users to use keys such as: <kbd>Left</kbd>, <kbd>Ctrl</kbd> + <kbd>B</kbd> to move left; <kbd>Right</kbd>, <kbd>Ctrl</kbd> + <kbd>F</kbd> to move right; <kbd>Home</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd> to go to start; <kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>E</kbd> to go to end; <kbd>Backspace</kbd> and <kbd>Delete</kbd> to delete a character; <kbd>Ctrl</kbd> + <kbd>K</kbd> and <kbd>Ctrl</kbd> + <kbd>U</kbd> to delete from the caret to the start and end of the input respectively; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to confirm input; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
 
 ### Select prompt
-A select prompt that allows the user to select amongst predetermined option.
+A list selection prompt that allows the user to select amongst predetermined options.
 
 ```go
 package main
@@ -70,7 +70,7 @@ func main() {
 The select prompt allows users to use keys such as: <kbd>Up</kbd>, <kbd>W</kbd>, <kbd>K</kbd> to go up; <kbd>Down</kbd>, <kbd>S</kbd>, <kbd>J</kbd> to go down; <kbd>Tab</kbd> and <kbd>Shift</kbd> + <kbd>Tab</kbd> to go down or up respectively with wrapping around; <kbd>Home</kbd> to go to first; <kbd>End</kbd> to go to last; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to select option; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
 
 ### Yes/No prompt
-A yes or no prompt.
+A yes or no prompt returning `true` or `false`.
 
 ```go
 package main
@@ -78,8 +78,12 @@ package main
 import "github.com/tdewolff/prompt"
 
 func main() {
-    val := prompt.YesNo("Label", false)
-    fmt.Println("Value:", val)
+    deflt := false
+    if prompt.YesNo("Label", deflt) {
+        fmt.Println("Yes")
+    } else {
+        fmt.Println("No")
+    }
 }
 ```
 
