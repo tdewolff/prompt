@@ -2,12 +2,18 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tdewolff/prompt"
-	"golang.org/x/text/language"
 )
 
-type Language language.Tag
+type Language int
+
+const (
+	English Language = iota
+	French
+	Dutch
+)
 
 func (lang *Language) Scan(i interface{}) error {
 	s := ""
@@ -20,19 +26,29 @@ func (lang *Language) Scan(i interface{}) error {
 		return fmt.Errorf("incompatible type for Language: %T", i)
 	}
 
-	if s == "" {
-		return fmt.Errorf("expected language tag")
+	switch strings.ToLower(s) {
+	case "en":
+		*lang = English
+	case "fr":
+		*lang = French
+	case "nl":
+		*lang = Dutch
+	default:
+		return fmt.Errorf("expected language")
 	}
-	tag, err := language.Parse(s)
-	if err != nil {
-		return err
-	}
-	*lang = Language(tag)
 	return nil
 }
 
 func (lang Language) String() string {
-	return language.Tag(lang).String()
+	switch lang {
+	case English:
+		return "en"
+	case French:
+		return "fr"
+	case Dutch:
+		return "nl"
+	}
+	return ""
 }
 
 func main() {

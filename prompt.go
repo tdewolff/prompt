@@ -15,17 +15,19 @@ import (
 	"github.com/araddon/dateparse"
 )
 
-var OptionSelected = fmt.Sprintf("  %v[\u00D7] %%v%v", escBold, escReset)
-var OptionUnselected = "  [ ] %v"
-var KeyInterrupt = fmt.Errorf("interrupt")
-var KeyEscape = fmt.Errorf("escape")
+var optionSelected = fmt.Sprintf("  %v[\u00D7] %%v%v", escBold, escReset)
+var optionUnselected = "  [ ] %v"
+var keyInterrupt = fmt.Errorf("interrupt")
+var keyEscape = fmt.Errorf("escape")
 
 func clearlines(n int) {
 	fmt.Printf(escMoveStart + escClearLine + strings.Repeat(escMoveUp+escClearLine, n-1))
 }
 
+// Validator is a validator interface.
 type Validator func(interface{}) error
 
+// StrLength matches if the input length is in the given range (inclusive).
 func StrLength(min, max int) Validator {
 	return func(i interface{}) error {
 		var str string
@@ -45,6 +47,7 @@ func StrLength(min, max int) Validator {
 	}
 }
 
+// NumRange matches if the input is in the given number range (inclusive).
 func NumRange(min, max float64) Validator {
 	return func(i interface{}) error {
 		var num float64
@@ -86,6 +89,7 @@ func NumRange(min, max float64) Validator {
 	}
 }
 
+// DateRange matches if the input is in the given time range (inclusive).
 func DateRange(min, max time.Time) Validator {
 	return func(i interface{}) error {
 		if t, ok := i.(time.Time); ok {
@@ -99,6 +103,7 @@ func DateRange(min, max time.Time) Validator {
 	}
 }
 
+// Prefix matches if the input has the given prefix.
 func Prefix(afix string) Validator {
 	return func(i interface{}) error {
 		var str string
@@ -116,6 +121,7 @@ func Prefix(afix string) Validator {
 	}
 }
 
+// Suffix matches if the input has the given suffix.
 func Suffix(afix string) Validator {
 	return func(i interface{}) error {
 		var str string
@@ -133,6 +139,7 @@ func Suffix(afix string) Validator {
 	}
 }
 
+// Pattern matches the given pattern.
 func Pattern(pattern, message string) Validator {
 	re := regexp.MustCompile(pattern)
 	return func(i interface{}) error {
@@ -151,65 +158,62 @@ func Pattern(pattern, message string) Validator {
 	}
 }
 
+// EmailAddress matches a valid e-mail address.
 func EmailAddress() Validator {
 	return Pattern(`^[\w\.-]+@[\w\.-]+\.\w{2,4}$`, "invalid e-mail address")
 }
 
+// IPAddress matches an IPv4 or IPv6 address.
 func IPAddress() Validator {
 	return Pattern(`^([0-9]{1,3}\.){3}[0-9]{1,3}$|^(([a-fA-F0-9]{1,4}|):){1,7}([a-fA-F0-9]{1,4}|:)$`, "invalid IP address")
 }
 
+// IPv4Address matches an IPv4 address.
 func IPv4Address() Validator {
 	return Pattern(`^([0-9]{1,3}\.){3}[0-9]{1,3}$`, "invalid IPv4 address")
 }
 
+// IPv6Address matches an IPv6 address.
 func IPv6Address() Validator {
 	return Pattern(`^(([a-fA-F0-9]{1,4}|):){1,7}([a-fA-F0-9]{1,4}|:)$`, "invalid IPv6 address")
 }
 
+// Port matches a valid port number.
 func Port() Validator {
 	return NumRange(1, 65535)
 }
 
+// Path matches any file path.
 func Path() Validator {
 	return Pattern(`^([^\/]+)?\/([^\/]+\/)*([^\/]+)?$`, "invalid path")
 }
 
-func AbsPath() Validator {
+// AbsolutePath matches an absolute file path.
+func AbsolutePath() Validator {
 	return Pattern(`^\/([^\/]+\/)*([^\/]+)?$`, "invalid absolute path")
 }
 
+// UserName matches a valid Unix user name.
 func UserName() Validator {
 	return Pattern(`^[a-z_]([a-z0-9_-]{1,31}|[a-z0-9_-]{1,30}\$)$`, "invalid user name")
 }
 
+// TopDomainName matches a top-level domain name.
 func TopDomainName() Validator {
 	return Pattern(`^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.[a-z0-9]{2,63}$`, "invalid top-level domain name")
 }
 
+// DomainName matches a domain name.
 func DomainName() Validator {
 	return Pattern(`^([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.)+[a-z0-9]{2,63}$`, "invalid domain name")
 }
 
-func StrNot(items []string) Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		for _, item := range items {
-			if item == str {
-				return fmt.Errorf("unavailable: %v", str)
-			}
-		}
-		return nil
-	}
+// FQDN matches a fully qualified domain name.
+func FQDN() Validator {
+	return Pattern(`^([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.)+[a-z0-9]{2,63}\.$`, "invalid fully qualified domain name")
 }
 
+// Dir matches a path to an existing directory on the system.
 func Dir() Validator {
 	return func(i interface{}) error {
 		var str string
@@ -229,6 +233,7 @@ func Dir() Validator {
 	}
 }
 
+// File matches a path to an existing file on the system.
 func File() Validator {
 	return func(i interface{}) error {
 		var str string
@@ -248,6 +253,7 @@ func File() Validator {
 	}
 }
 
+// In matches if the input matches any element of the list.
 func In(list interface{}) Validator {
 	vlist := reflect.ValueOf(list)
 	if vlist.Kind() != reflect.Slice {
@@ -268,38 +274,68 @@ func In(list interface{}) Validator {
 	}
 }
 
-func StrIs(target string) Validator {
+// NotIn matches if the input does not match any element of the list.
+func NotIn(list interface{}) Validator {
+	vlist := reflect.ValueOf(list)
+	if vlist.Kind() != reflect.Slice {
+		panic("list must be a slice")
+	}
+	elemType := vlist.Type().Elem()
 	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
+		v := reflect.ValueOf(i)
+		if v.Type() != elemType {
+			return fmt.Errorf("expected %v", elemType.Name())
 		}
-		if str != target {
-			if target == "" {
-				return fmt.Errorf("expected empty string")
-			} else {
-				return fmt.Errorf("expected '%v'", target)
+		for j := 0; j < vlist.Len(); j++ {
+			if vlist.Index(j).Equal(v) {
+				return fmt.Errorf("not available")
 			}
 		}
 		return nil
 	}
 }
 
-func Or(validatorA, validatorB Validator) Validator {
+// Not evaluates the validator using the logical NOT operator, i.e. satisfies if the validator does not satisfy.
+func Not(validator Validator) Validator {
 	return func(i interface{}) error {
-		errA := validatorA(i)
-		errB := validatorB(i)
-		if errA == nil || errB == nil {
+		if validator(i) != nil {
 			return nil
 		}
-		return fmt.Errorf("%w & %w", errA, errB)
+		return fmt.Errorf("not available")
 	}
 }
 
+// And evaluates multiple validators using the logical AND operator, i.e. must satisfy all validators. This is only useful inside logical OR validators.
+func And(validators ...Validator) Validator {
+	return func(i interface{}) error {
+		if len(validators) == 0 {
+			return nil
+		}
+		for _, val := range validators {
+			if err := val(i); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// Or evaluates multiple validators using the logical OR operator, i.e. at least one validator must be satisfied.
+func Or(validators ...Validator) Validator {
+	return func(i interface{}) error {
+		if len(validators) == 0 {
+			return nil
+		}
+		for _, val := range validators {
+			if err := val(i); err == nil {
+				return nil
+			}
+		}
+		return validators[0](i)
+	}
+}
+
+// Enter is a prompt that requires the Enter key to continue.
 func Enter(label string) {
 	fmt.Printf("%v [enter]: ", label)
 
@@ -307,6 +343,7 @@ func Enter(label string) {
 	scanner.Scan()
 }
 
+// YesNo is a prompt that requires a yes or no answer. It returns true for any of (y,yes,t,true,1), and false for any of (n,no,f,false,0). It is case-insensitive.
 func YesNo(label string, deflt bool) bool {
 	first := true
 
@@ -324,13 +361,15 @@ Prompt:
 	}
 	if res == "" {
 		return deflt
+	} else {
+		res = strings.ToLower(res)
 	}
 
 	var b bool
 	var err error
-	if res == "y" || res == "Y" || res == "yes" || res == "YES" {
+	if res == "y" || res == "yes" {
 		b = true
-	} else if res == "n" || res == "N" || res == "no" || res == "NO" {
+	} else if res == "n" || res == "no" {
 		b = false
 	} else {
 		var perr error
@@ -355,7 +394,7 @@ type defaultValue struct {
 	pos int
 }
 
-// Default is the default value with the initial text caret position.
+// Default is the default value with the initial text caret position used for Prompt.
 func Default(str string, pos int) defaultValue {
 	if pos < 0 {
 		pos = 0
@@ -373,6 +412,9 @@ func (def defaultValue) Pos() int {
 	return def.pos
 }
 
+// Prompt is a regular text prompt that can read into a (string,[]byte,bool,int,int8,int16,int32,int64,uint,uint8,uint16,uint32,uint64,float32,float64,time.Time) or a type that implements the Scanner interface. The idst must be a pointer to a variable, and ideflt must be of the same type as the variable.
+// If ideflt is any of the basic types mentioned (except bool) or implements the Stringer interface, its value will be editable in-place. To set the text caret initial position when ideflt is editable, use prompt.Default(value, position). When editing, you can use the Left or Ctrl+B, Right or Ctrl+F, Home or Ctrl+A, End or Ctrl+E to move around; Backspace and Delete to delete a character; Ctrl+U and Ctrl+K to delete from the caret to the beginning and the end of the line respectively; Ctrl+C and Escape to quit; and Ctrl+Z and Enter to confirm the input.
+// All validators must be satisfies, otherwise an error is printed and the answer should be corrected.
 func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Validator) error {
 	first := true
 
@@ -386,7 +428,8 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 	editDefault := false
 	switch ideflt.(type) {
 	case nil:
-	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, time.Time:
+		// ignore
+	case []byte, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, time.Time:
 		editDefault = true
 	default:
 		if _, ok := ideflt.(interface {
@@ -399,7 +442,14 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 	pos := 0
 	var result []rune
 	if editDefault {
-		result = []rune(fmt.Sprint(ideflt))
+		switch deflt := ideflt.(type) {
+		case []byte:
+			result = []rune(string(deflt))
+		case string:
+			result = []rune(deflt)
+		default:
+			result = []rune(fmt.Sprint(ideflt))
+		}
 		if poser, ok := ideflt.(interface {
 			Pos() int
 		}); ok {
@@ -441,7 +491,7 @@ Prompt:
 		}
 
 		if r == '\x03' { // interrupt
-			err = KeyInterrupt
+			err = keyInterrupt
 			break
 		} else if r == '\x04' || r == '\r' || r == '\n' { // select
 			break
@@ -453,7 +503,7 @@ Prompt:
 			}
 		} else if r == '\x1B' { // escape
 			if input.Buffered() == 0 {
-				err = KeyEscape
+				err = keyEscape
 				break
 			} else if r, _, err = input.ReadRune(); err != nil {
 				break
@@ -491,8 +541,6 @@ Prompt:
 						}
 					}
 				}
-			} else {
-				fmt.Println(r)
 			}
 		} else if r == '\x01' { // Ctrl+A - move to start of line
 			fmt.Printf(strings.Repeat(escMoveLeft, pos))
@@ -520,8 +568,6 @@ Prompt:
 			result = append(result[:pos], append([]rune{r}, result[pos:]...)...)
 			fmt.Printf(string(result[pos:]) + strings.Repeat(escMoveLeft, len(result)-pos-1))
 			pos++
-		} else {
-			fmt.Print(r)
 		}
 	}
 	restore()
@@ -529,10 +575,10 @@ Prompt:
 	fmt.Println(escMoveStart)
 
 	if err != nil {
-		if err == KeyInterrupt {
+		if err == keyInterrupt {
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		} else if err == KeyEscape {
+		} else if err == keyEscape {
 			return nil
 		}
 		return err
@@ -543,6 +589,8 @@ Prompt:
 	ival := ideflt
 	if editDefault || res != "" || ival == nil {
 		switch idst.(type) {
+		case []byte:
+			ival = res
 		case string:
 			ival = res
 		case bool:
@@ -694,6 +742,8 @@ Prompt:
 	return nil
 }
 
+// Select is a list selection prompt that allows to select one of the list of possible values. The ioptions must be a slice of options. The idst must be a pointer to a variable and must of of the same type as the options (set the option value) or an integer (set the option index). Equally, iselected can be an integer (index) or of the same type as the options (value).
+// Users can select an option using Up or W or K to move up, Down or S or J to move down, Tab and Shift+Tab to move down and up respectively and wrap around, Ctrl+C or Escape to quit, and Ctrl+Z or Enter to select an option.
 func Select(idst interface{}, label string, ioptions interface{}, iselected interface{}) error {
 	dst := reflect.ValueOf(idst)
 	if dst.Kind() != reflect.Pointer {
@@ -754,9 +804,9 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 	for i := 0; i < options.Len(); i++ {
 		opt := options.Index(i).Interface()
 		if i == selected {
-			fmt.Printf("\n"+OptionSelected, opt)
+			fmt.Printf("\n"+optionSelected, opt)
 		} else {
-			fmt.Printf("\n"+OptionUnselected, opt)
+			fmt.Printf("\n"+optionUnselected, opt)
 		}
 	}
 
@@ -777,7 +827,7 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 			break
 		} else if r == '\x1B' { // escape
 			if input.Buffered() == 0 {
-				err = KeyEscape
+				err = keyEscape
 				break
 			} else if r, _, err = input.ReadRune(); err != nil {
 				break
@@ -790,30 +840,30 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 		}
 
 		if r == '\x03' { // interrupt
-			err = KeyInterrupt
+			err = keyInterrupt
 			break
 		} else if r == '\x04' || r == '\r' || r == '\n' { // select
 			break
-		} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k') { // up
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
+		} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k' || csi == '\x5A') { // up
+			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveUp)
 			selected--
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
 		} else if selected != options.Len()-1 && (csi == 'B' || r == 's' || r == 'j' || r == '\t') { // down
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
 			fmt.Printf(escMoveDown)
 			selected++
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
 		} else if csi == 'H' || selected == options.Len()-1 && r == '\t' { // home
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
 			fmt.Printf(strings.Repeat(escMoveUp, selected))
 			selected = 0
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
-		} else if csi == 'F' { // end
-			fmt.Printf(escMoveStart+escClearLine+OptionUnselected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
+		} else if csi == 'F' || selected == 0 && csi == '\x5A' { // end
+			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
 			fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
 			selected = options.Len() - 1
-			fmt.Printf(escMoveStart+escClearLine+OptionSelected, options.Index(selected).Interface())
+			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
 		}
 	}
 	restore()
@@ -824,10 +874,10 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 
 	fmt.Printf("%v: ", label)
 	if err != nil {
-		if err == KeyInterrupt {
+		if err == keyInterrupt {
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		} else if err == KeyEscape {
+		} else if err == keyEscape {
 			return nil
 		}
 		return err
