@@ -10,17 +10,18 @@ import (
 )
 
 var (
-	escClearLine = "\x1B[2K"
-	escMoveUp    = "\x1B[1A"
-	escMoveDown  = "\x1B[1B"
-	escMoveLeft  = "\x1B[1D"
-	escMoveRight = "\x1B[1C"
-	escMoveStart = "\x1B[G"
-	escBold      = "\x1B[1m"
-	escRed       = "\x1B[31m"
-	escReset     = "\x1B[0m"
-	escShow      = "\x1B[?25h"
-	escHide      = "\x1B[?25l"
+	escClearLine  = "\x1B[2K"
+	escClearToEnd = "\x1B[0K"
+	escMoveUp     = "\x1B[1A"
+	escMoveDown   = "\x1B[1B"
+	escMoveLeft   = "\x1B[1D"
+	escMoveRight  = "\x1B[1C"
+	escMoveStart  = "\x1B[G"
+	escBold       = "\x1B[1m"
+	escRed        = "\x1B[31m"
+	escReset      = "\x1B[0m"
+	escShow       = "\x1B[?25h"
+	escHide       = "\x1B[?25l"
 )
 
 func MakeRaw(hide bool) (func() error, error) {

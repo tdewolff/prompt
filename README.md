@@ -24,8 +24,8 @@ import (
 ```
 
 ## Examples
-### Regular prompt
-A regular prompt requesting user input.
+### Input prompt
+A regular prompt requesting user input. When the target is a primary type (except boolean) or implements the `Stringer` interface, it will be editable in-place.
 
 ```go
 package main
@@ -34,17 +34,20 @@ import "github.com/tdewolff/prompt"
 
 func main() {
     // Validators verify the user input to match conditions.
-    validators := []prompt.Validator{prompt.StrLength(5,10), prompt.Suffix("suffix")}
+    validators := []prompt.Validator{prompt.StrLength(5, 10), prompt.Suffix("suffix")}
 
     var val string
-    if err := prompt.Prompt(&val, "Label", "default value", validators...); err != nil {
+    deflt := prompt.Default("value", 3)  // set text caret to the 3rd character
+    if err := prompt.Prompt(&val, "Label", deflt, validators...); err != nil {
         panic(err)
     }
-    fmt.Println("Value:", val)
+    fmt.Println("Result:", val)
 }
 ```
 
 where `val` can be of any primary type, such as `string`, `bool`, `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, or `float64`.
+
+When the value is editable it allowd users to use keys such as: <kbd>Left</kbd>, <kbd>Ctrl</kbd> + <kbd>B</kbd> to move left; <kbd>Right</kbd>, <kbd>Ctrl</kbd> + <kbd>F</kbd> to move right; <kbd>Home</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd> to go to start; <kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>E</kbd> to go to end; <kbd>Backspace</kbd> and <kbd>Delete</kbd> to delete a character; <kbd>Ctrl</kbd> + <kbd>K</kbd> and <kbd>Ctrl</kbd> + <kbd>U</kbd> to delete from the caret to the start and end of the input respectively; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to confirm input; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
 
 ### Select prompt
 A select prompt that allows the user to select amongst predetermined option.
@@ -55,19 +58,18 @@ package main
 import "github.com/tdewolff/prompt"
 
 func main() {
-    var val string // can be int if you need the index into options
-    deflt := "Yellow" // can be int if you need the index into options
+    val, deflt := "", "Yellow"  // can be ints if you need the index into options
     options := []string{"Red", "Orange", "Green", "Yellow", "Blue", "Purple"}
     if err := prompt.Select(&val, "Label", options, deflt); err != nil {
         panic(err)
     }
-    fmt.Println("Value:", val)
+    fmt.Println("Selected:", val)
 }
 ```
 
-The select prompt allows users to use keys such as: <kbd>Up</kbd>, <kbd>W</kbd>, <kbd>K</kbd> to go up; <kbd>Down</kbd>, <kbd>S</kbd>, <kbd>J</kbd> to go down; <kbd>Tab</kbd> to go down with wrapping to first; <kbd>Home</kbd> to go to first; <kbd>End</kbd> to go to last; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to select option; and <kbd>Ctrl</kbd> + <kbd>C</kbd> to interrupt.
+The select prompt allows users to use keys such as: <kbd>Up</kbd>, <kbd>W</kbd>, <kbd>K</kbd> to go up; <kbd>Down</kbd>, <kbd>S</kbd>, <kbd>J</kbd> to go down; <kbd>Tab</kbd> and <kbd>Shift</kbd> + <kbd>Tab</kbd> to go down or up respectively with wrapping around; <kbd>Home</kbd> to go to first; <kbd>End</kbd> to go to last; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to select option; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
 
-### Yes/no prompt
+### Yes/No prompt
 A yes or no prompt.
 
 ```go
@@ -81,28 +83,49 @@ func main() {
 }
 ```
 
-`true` is any of `1`, `y`, `Y`, `yes`, `YES`, `t`, `T`, `true`, `TRUE`.
+`true` is any of `1`, `y`, `yes`, `t`, `true` and is case-insensitive.
 
-`false` is any of `0`, `n`, `N`, `no`, `NO`, `f`, `F`, `false`, `FALSE`.
+`false` is any of `0`, `n`, `no`, `f`, `false` and is case-insensitive.
+
+### Enter prompt
+A prompt that waits for Enter to be pressed.
+
+```go
+package main
+
+import "github.com/tdewolff/prompt"
+
+func main() {
+    prompt.Enter("Are you done?")  // waits for enter
+}
+```
 
 ### Validators
 ```go
-StrLength(min, max int)           // limit string length (-1 is no limit)
-NumRange(min, max float64)        // limit int/uint/float range
+Not(Validator)     // logical NOT
+And(Validator...)  // logical AND
+Or(Validator...)   // logical OR
+
+In([]any)     // in list
+NotIn([]any)  // not in list
+
+StrLength(min, max int)           // limit string length (inclusive)
+NumRange(min, max float64)        // limit int/uint/float range (inclusive)
+DateRange(min, max time.Time)     // limit time.Time range (inclusive)
 Prefix(afix string)
 Suffix(afix string)
 Pattern(pattern, message string)  // pattern match and error message
 EmailAddress()
-IPAddress()
+IPAddress()                       // valid IPv4 or IPv6 address
 IPv4Address()
 IPv6Address()
 Port()                            // server port
 Path()                            // Unix path
-AbsPath()                         // Unix absolute path
-UserName()
+AbsolutePath()                    // Unix absolute path
+UserName()                        // valid Unix user name
 TopDomainName()                   // such as example.com
 DomainName()                      // such as sub.example.com
-StrNot(items []string)            // exclude items as valid input
+FQDN()                            // such as sub.example.com.
 Dir()                             // existing directory
 File()                            // existing file
 ```

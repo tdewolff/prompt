@@ -27,7 +27,7 @@ func clearlines(n int) {
 // Validator is a validator interface.
 type Validator func(interface{}) error
 
-// StrLength matches if the input length is in the given range (inclusive).
+// StrLength matches if the input length is in the given range (inclusive). Use -1 for an open limit.
 func StrLength(min, max int) Validator {
 	return func(i interface{}) error {
 		var str string
@@ -47,7 +47,7 @@ func StrLength(min, max int) Validator {
 	}
 }
 
-// NumRange matches if the input is in the given number range (inclusive).
+// NumRange matches if the input is in the given number range (inclusive). Use NaN or +/-Inf for an open limit.
 func NumRange(min, max float64) Validator {
 	return func(i interface{}) error {
 		var num float64
@@ -82,18 +82,18 @@ func NumRange(min, max float64) Validator {
 		} else {
 			return fmt.Errorf("expected integer or floating point")
 		}
-		if num < min || max < num {
+		if !math.IsNaN(min) && num < min || !math.IsNaN(max) && max < num {
 			return fmt.Errorf("out of range [%v,%v]", min, max)
 		}
 		return nil
 	}
 }
 
-// DateRange matches if the input is in the given time range (inclusive).
+// DateRange matches if the input is in the given time range (inclusive). Use time.Time's zero value for an open limit.
 func DateRange(min, max time.Time) Validator {
 	return func(i interface{}) error {
 		if t, ok := i.(time.Time); ok {
-			if t.Before(min) || t.After(max) {
+			if !min.IsZero() && t.Before(min) || !max.IsZero() && t.After(max) {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
 			}
 		} else {
@@ -343,7 +343,7 @@ func Enter(label string) {
 	scanner.Scan()
 }
 
-// YesNo is a prompt that requires a yes or no answer. It returns true for any of (y,yes,t,true,1), and false for any of (n,no,f,false,0). It is case-insensitive.
+// YesNo is a prompt that requires a yes or no answer. It returns true for any of (1,y,yes,t,true), and false for any of (0,n,no,f,false). It is case-insensitive.
 func YesNo(label string, deflt bool) bool {
 	first := true
 
@@ -390,22 +390,17 @@ Prompt:
 }
 
 type defaultValue struct {
-	str string
+	val interface{}
 	pos int
 }
 
 // Default is the default value with the initial text caret position used for Prompt.
-func Default(str string, pos int) defaultValue {
-	if pos < 0 {
-		pos = 0
-	} else if len(str) < pos {
-		pos = len(str)
-	}
-	return defaultValue{str, pos}
+func Default(val interface{}, pos int) defaultValue {
+	return defaultValue{val, pos}
 }
 
 func (def defaultValue) String() string {
-	return def.str
+	return fmt.Sprint(def.val)
 }
 
 func (def defaultValue) Pos() int {
@@ -450,11 +445,17 @@ func Prompt(idst interface{}, label string, ideflt interface{}, validators ...Va
 		default:
 			result = []rune(fmt.Sprint(ideflt))
 		}
+
 		if poser, ok := ideflt.(interface {
 			Pos() int
 		}); ok {
 			pos = poser.Pos()
 		} else {
+			pos = len(result)
+		}
+		if pos < 0 {
+			pos = 0
+		} else if len(result) < pos {
 			pos = len(result)
 		}
 	}
@@ -572,17 +573,22 @@ Prompt:
 	}
 	restore()
 
-	fmt.Println(escMoveStart)
-
 	if err != nil {
+		if !first {
+			fmt.Printf(escMoveDown + escClearLine + escMoveUp)
+		}
 		if err == keyInterrupt {
-			fmt.Printf("^C")
+			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos) + "^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		} else if err == keyEscape {
+			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos) + "^[\n")
 			return nil
 		}
+		fmt.Printf("\n")
 		return err
 	}
+
+	fmt.Println(escMoveStart)
 
 	// fill destination
 	res := strings.TrimSpace(string(result))
@@ -742,20 +748,7 @@ Prompt:
 	return nil
 }
 
-// Select is a list selection prompt that allows to select one of the list of possible values. The ioptions must be a slice of options. The idst must be a pointer to a variable and must of of the same type as the options (set the option value) or an integer (set the option index). Equally, iselected can be an integer (index) or of the same type as the options (value).
-// Users can select an option using Up or W or K to move up, Down or S or J to move down, Tab and Shift+Tab to move down and up respectively and wrap around, Ctrl+C or Escape to quit, and Ctrl+Z or Enter to select an option.
-func Select(idst interface{}, label string, ioptions interface{}, iselected interface{}) error {
-	dst := reflect.ValueOf(idst)
-	if dst.Kind() != reflect.Pointer {
-		return fmt.Errorf("destination must be pointer to variable")
-	}
-	dst = dst.Elem()
-
-	options := reflect.ValueOf(ioptions)
-	if options.Kind() != reflect.Slice {
-		return fmt.Errorf("options must be slice")
-	}
-
+func getSelected(iselected interface{}, options reflect.Value) (int, error) {
 	var selected int
 	if reflect.TypeOf(iselected) == options.Type().Elem() {
 		vselected := reflect.ValueOf(iselected)
@@ -786,18 +779,35 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 	} else if u, ok := iselected.(uint64); ok {
 		selected = int(u)
 	} else {
-		return fmt.Errorf("selected must be integer type or %v", options.Type().Elem())
+		return 0, fmt.Errorf("selected must be integer type or %v", options.Type().Elem())
 	}
-
-	if options.Len() == 0 {
-		return fmt.Errorf("no options")
-	} else if 256 <= options.Len() {
-		return fmt.Errorf("too many options")
-	} else if selected < 0 {
+	if selected < 0 {
 		selected = 0
 	} else if options.Len() <= selected {
 		selected = options.Len() - 1
 	}
+	return selected, nil
+}
+
+// Select is a list selection prompt that allows to select one of the list of possible values. The ioptions must be a slice of options. The idst must be a pointer to a variable and must of of the same type as the options (set the option value) or an integer (set the option index). Equally, iselected can be an integer (index) or of the same type as the options (value).
+// Users can select an option using Up or W or K to move up, Down or S or J to move down, Tab and Shift+Tab to move down and up respectively and wrap around, Ctrl+C or Escape to quit, and Ctrl+Z or Enter to select an option.
+func Select(idst interface{}, label string, ioptions interface{}, iselected interface{}) error {
+	dst := reflect.ValueOf(idst)
+	if dst.Kind() != reflect.Pointer {
+		return fmt.Errorf("destination must be pointer to variable")
+	}
+	dst = dst.Elem()
+
+	options := reflect.ValueOf(ioptions)
+	if options.Kind() != reflect.Slice {
+		return fmt.Errorf("options must be slice")
+	} else if options.Len() == 0 {
+		return fmt.Errorf("no options")
+	} else if 256 <= options.Len() {
+		return fmt.Errorf("too many options")
+	}
+
+	selected, err := getSelected(iselected, options)
 
 	// print options
 	fmt.Printf("%v:", label)
@@ -878,8 +888,10 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		} else if err == keyEscape {
+			fmt.Printf("^[\n")
 			return nil
 		}
+		fmt.Printf("\n")
 		return err
 	}
 	fmt.Printf("%v\n", options.Index(selected).Interface())
