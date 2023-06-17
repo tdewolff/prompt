@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,8 +14,8 @@ import (
 	"github.com/araddon/dateparse"
 )
 
-var optionSelected = fmt.Sprintf("  %v[\u00D7] %%v%v", escBold, escReset)
-var optionUnselected = "  [ ] %v"
+var optionSelected = fmt.Sprintf("%v[\u00D7] %%v%v", escBold, escReset)
+var optionUnselected = "[ ] %v"
 var keyInterrupt = fmt.Errorf("interrupt")
 var keyEscape = fmt.Errorf("escape")
 
@@ -24,337 +23,12 @@ func clearlines(n int) {
 	fmt.Printf(escMoveStart + escClearLine + strings.Repeat(escMoveUp+escClearLine, n-1))
 }
 
-// Validator is a validator interface.
-type Validator func(interface{}) error
-
-// StrLength matches if the input length is in the given range (inclusive). Use -1 for an open limit.
-func StrLength(min, max int) Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if len(str) < min {
-			return fmt.Errorf("too short, minimum is %v", min)
-		} else if max != -1 && max < len(str) {
-			return fmt.Errorf("too long, maximum is %v", max)
-		}
-		return nil
-	}
-}
-
-// NumRange matches if the input is in the given number range (inclusive). Use NaN or +/-Inf for an open limit.
-func NumRange(min, max float64) Validator {
-	return func(i interface{}) error {
-		var num float64
-		if n, ok := i.(int); ok {
-			num = float64(n)
-		} else if n, ok := i.(int8); ok {
-			num = float64(n)
-		} else if n, ok := i.(int16); ok {
-			num = float64(n)
-		} else if n, ok := i.(int32); ok {
-			num = float64(n)
-		} else if n, ok := i.(int64); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint8); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint16); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint32); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint64); ok {
-			num = float64(n)
-		} else if n, ok := i.(float32); ok {
-			num = float64(n)
-		} else if n, ok := i.(float64); ok {
-			num = n
-		} else if inter, ok := i.(interface{ Int64() int64 }); ok {
-			num = float64(inter.Int64())
-		} else if floater, ok := i.(interface{ Float64() float64 }); ok {
-			num = floater.Float64()
-		} else {
-			return fmt.Errorf("expected integer or floating point")
-		}
-		if !math.IsNaN(min) && num < min || !math.IsNaN(max) && max < num {
-			return fmt.Errorf("out of range [%v,%v]", min, max)
-		}
-		return nil
-	}
-}
-
-// DateRange matches if the input is in the given time range (inclusive). Use time.Time's zero value for an open limit.
-func DateRange(min, max time.Time) Validator {
-	return func(i interface{}) error {
-		if t, ok := i.(time.Time); ok {
-			if !min.IsZero() && t.Before(min) || !max.IsZero() && t.After(max) {
-				return fmt.Errorf("out of range [%v,%v]", min, max)
-			}
-		} else {
-			return fmt.Errorf("expected timestamp")
-		}
-		return nil
-	}
-}
-
-// Prefix matches if the input has the given prefix.
-func Prefix(afix string) Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if !strings.HasPrefix(str, afix) {
-			return fmt.Errorf("expected prefix '%v'", afix)
-		}
-		return nil
-	}
-}
-
-// Suffix matches if the input has the given suffix.
-func Suffix(afix string) Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if !strings.HasSuffix(str, afix) {
-			return fmt.Errorf("expected suffix '%v'", afix)
-		}
-		return nil
-	}
-}
-
-// Pattern matches the given pattern.
-func Pattern(pattern, message string) Validator {
-	re := regexp.MustCompile(pattern)
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if !re.MatchString(str) {
-			return fmt.Errorf(message)
-		}
-		return nil
-	}
-}
-
-// EmailAddress matches a valid e-mail address.
-func EmailAddress() Validator {
-	return Pattern(`^[\w\.-]+@[\w\.-]+\.\w{2,4}$`, "invalid e-mail address")
-}
-
-// IPAddress matches an IPv4 or IPv6 address.
-func IPAddress() Validator {
-	return Pattern(`^([0-9]{1,3}\.){3}[0-9]{1,3}$|^(([a-fA-F0-9]{1,4}|):){1,7}([a-fA-F0-9]{1,4}|:)$`, "invalid IP address")
-}
-
-// IPv4Address matches an IPv4 address.
-func IPv4Address() Validator {
-	return Pattern(`^([0-9]{1,3}\.){3}[0-9]{1,3}$`, "invalid IPv4 address")
-}
-
-// IPv6Address matches an IPv6 address.
-func IPv6Address() Validator {
-	return Pattern(`^(([a-fA-F0-9]{1,4}|):){1,7}([a-fA-F0-9]{1,4}|:)$`, "invalid IPv6 address")
-}
-
-// Port matches a valid port number.
-func Port() Validator {
-	return NumRange(1, 65535)
-}
-
-// Path matches any file path.
-func Path() Validator {
-	return Pattern(`^([^\/]+)?\/([^\/]+\/)*([^\/]+)?$`, "invalid path")
-}
-
-// AbsolutePath matches an absolute file path.
-func AbsolutePath() Validator {
-	return Pattern(`^\/([^\/]+\/)*([^\/]+)?$`, "invalid absolute path")
-}
-
-// UserName matches a valid Unix user name.
-func UserName() Validator {
-	return Pattern(`^[a-z_]([a-z0-9_-]{1,31}|[a-z0-9_-]{1,30}\$)$`, "invalid user name")
-}
-
-// TopDomainName matches a top-level domain name.
-func TopDomainName() Validator {
-	return Pattern(`^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.[a-z0-9]{2,63}$`, "invalid top-level domain name")
-}
-
-// DomainName matches a domain name.
-func DomainName() Validator {
-	return Pattern(`^([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.)+[a-z0-9]{2,63}$`, "invalid domain name")
-}
-
-// FQDN matches a fully qualified domain name.
-func FQDN() Validator {
-	return Pattern(`^([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.)+[a-z0-9]{2,63}\.$`, "invalid fully qualified domain name")
-}
-
-// Dir matches a path to an existing directory on the system.
-func Dir() Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if info, err := os.Stat(str); err != nil {
-			return fmt.Errorf("file not found: %v", str)
-		} else if !info.Mode().IsDir() {
-			return fmt.Errorf("path is not regular file: %v", str)
-		}
-		return nil
-	}
-}
-
-// File matches a path to an existing file on the system.
-func File() Validator {
-	return func(i interface{}) error {
-		var str string
-		if s, ok := i.(string); ok {
-			str = s
-		} else if stringer, ok := i.(interface{ String() string }); ok {
-			str = stringer.String()
-		} else {
-			return fmt.Errorf("expected string")
-		}
-		if info, err := os.Stat(str); err != nil {
-			return fmt.Errorf("file not found: %v", str)
-		} else if !info.Mode().IsRegular() {
-			return fmt.Errorf("path is not regular file: %v", str)
-		}
-		return nil
-	}
-}
-
-// Is matches if the input matches the given value.
-func Is(elem interface{}) Validator {
-	velem := reflect.ValueOf(elem)
-	return func(i interface{}) error {
-		v := reflect.ValueOf(i)
-		if v.Type() != velem.Type() {
-			return fmt.Errorf("expected %v", velem.Type().Name())
-		} else if !velem.Equal(v) {
-			return fmt.Errorf("expected '%v'", elem)
-		}
-		return nil
-	}
-}
-
-// In matches if the input matches any element of the list.
-func In(list interface{}) Validator {
-	vlist := reflect.ValueOf(list)
-	if vlist.Kind() != reflect.Slice {
-		panic("list must be a slice")
-	}
-	elemType := vlist.Type().Elem()
-	return func(i interface{}) error {
-		v := reflect.ValueOf(i)
-		if v.Type() != elemType {
-			return fmt.Errorf("expected %v", elemType.Name())
-		}
-		for j := 0; j < vlist.Len(); j++ {
-			if vlist.Index(j).Equal(v) {
-				return nil
-			}
-		}
-		return fmt.Errorf("not available")
-	}
-}
-
-// NotIn matches if the input does not match any element of the list.
-func NotIn(list interface{}) Validator {
-	vlist := reflect.ValueOf(list)
-	if vlist.Kind() != reflect.Slice {
-		panic("list must be a slice")
-	}
-	elemType := vlist.Type().Elem()
-	return func(i interface{}) error {
-		v := reflect.ValueOf(i)
-		if v.Type() != elemType {
-			return fmt.Errorf("expected %v", elemType.Name())
-		}
-		for j := 0; j < vlist.Len(); j++ {
-			if vlist.Index(j).Equal(v) {
-				return fmt.Errorf("not available")
-			}
-		}
-		return nil
-	}
-}
-
-// Not evaluates the validator using the logical NOT operator, i.e. satisfies if the validator does not satisfy.
-func Not(validator Validator) Validator {
-	return func(i interface{}) error {
-		if validator(i) != nil {
-			return nil
-		}
-		return fmt.Errorf("not available")
-	}
-}
-
-// And evaluates multiple validators using the logical AND operator, i.e. must satisfy all validators. This is only useful inside logical OR validators.
-func And(validators ...Validator) Validator {
-	return func(i interface{}) error {
-		if len(validators) == 0 {
-			return nil
-		}
-		for _, val := range validators {
-			if err := val(i); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
-// Or evaluates multiple validators using the logical OR operator, i.e. at least one validator must be satisfied.
-func Or(validators ...Validator) Validator {
-	return func(i interface{}) error {
-		if len(validators) == 0 {
-			return nil
-		}
-		for _, val := range validators {
-			if err := val(i); err == nil {
-				return nil
-			}
-		}
-		return fmt.Errorf("not available")
-	}
-}
-
 // Enter is a prompt that requires the Enter key to continue.
 func Enter(label string) {
 	fmt.Printf("%v [enter]: ", label)
 
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
+	var res string
+	fmt.Scanf("%s\n", &res)
 }
 
 // YesNo is a prompt that requires a yes or no answer. It returns true for any of (1,y,yes,t,true), and false for any of (0,n,no,f,false). It is case-insensitive.
@@ -369,11 +43,16 @@ Prompt:
 	}
 
 	var res string
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		res = strings.TrimSpace(scanner.Text())
-	}
+	fmt.Scanf("%s\n", &res)
+	res = strings.TrimSpace(res)
+
 	if res == "" {
+		fmt.Printf(escMoveUp + escMoveStart + escClearLine)
+		if deflt {
+			fmt.Printf("%v [Y/n]: yes\n", label)
+		} else {
+			fmt.Printf("%v [y/N]: no\n", label)
+		}
 		return deflt
 	} else {
 		res = strings.ToLower(res)
@@ -398,7 +77,7 @@ Prompt:
 		clearlines(1)
 		goto Prompt
 	} else if !first {
-		fmt.Printf(escClearLine)
+		fmt.Printf(escClearLine) // clear error
 	}
 	return b
 }
@@ -486,6 +165,8 @@ Prompt:
 		} else {
 			fmt.Printf("%v [y/n]: ", label)
 		}
+		result = []rune{}
+		pos = 0
 	} else {
 		fmt.Printf("%v: %v", label, string(result))
 		fmt.Printf(strings.Repeat(escMoveLeft, len(result)-pos))
@@ -497,95 +178,98 @@ Prompt:
 		return err
 	}
 
-	// read input
-	input := bufio.NewReader(os.Stdin)
-	for {
-		var r rune
-		if r, _, err = input.ReadRune(); err != nil {
-			break
-		}
+	func() {
+		defer restore()
 
-		if r == '\x03' { // interrupt
-			err = keyInterrupt
-			break
-		} else if r == '\x04' || r == '\r' || r == '\n' { // select
-			break
-		} else if r == '\x7F' { // backspace
-			if pos != 0 {
-				result = append(result[:pos-1], result[pos:]...)
-				pos--
-				fmt.Printf(escMoveLeft + string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+		// read input
+		input := bufio.NewReader(os.Stdin)
+		for {
+			var r rune
+			if r, _, err = input.ReadRune(); err != nil {
+				break
 			}
-		} else if r == '\x1B' { // escape
-			if input.Buffered() == 0 {
-				err = keyEscape
+
+			if r == '\x03' { // interrupt
+				err = keyInterrupt
 				break
-			} else if r, _, err = input.ReadRune(); err != nil {
+			} else if r == '\x04' || r == '\r' || r == '\n' { // select
 				break
-			} else if r == '[' { // CSI
+			} else if r == '\x7F' { // backspace
+				if pos != 0 {
+					result = append(result[:pos-1], result[pos:]...)
+					pos--
+					fmt.Printf(escMoveLeft + string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+				}
+			} else if r == '\x1B' { // escape
 				if input.Buffered() == 0 {
-					// ignore
+					err = keyEscape
+					break
 				} else if r, _, err = input.ReadRune(); err != nil {
 					break
-				} else if r == 'D' { // left
-					if pos != 0 {
-						fmt.Printf(escMoveLeft)
-						pos--
-					}
-				} else if r == 'C' { // right
-					if pos != len(result) {
-						fmt.Printf(escMoveRight)
-						pos++
-					}
-				} else if r == 'H' { // home
-					fmt.Printf(strings.Repeat(escMoveLeft, pos))
-					pos = 0
-				} else if r == 'F' { // end
-					fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
-					pos = len(result)
-				} else if r == '3' {
+				} else if r == '[' { // CSI
 					if input.Buffered() == 0 {
 						// ignore
 					} else if r, _, err = input.ReadRune(); err != nil {
 						break
-					} else if r == '~' { // delete
+					} else if r == 'D' { // left
+						if pos != 0 {
+							fmt.Printf(escMoveLeft)
+							pos--
+						}
+					} else if r == 'C' { // right
 						if pos != len(result) {
+							fmt.Printf(escMoveRight)
+							pos++
+						}
+					} else if r == 'H' { // home
+						fmt.Printf(strings.Repeat(escMoveLeft, pos))
+						pos = 0
+					} else if r == 'F' { // end
+						fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
+						pos = len(result)
+					} else if r == '3' {
+						if input.Buffered() == 0 {
+							// ignore
+						} else if r, _, err = input.ReadRune(); err != nil {
+							break
+						} else if r == '~' { // delete
+							if pos != len(result) {
 
-							result = append(result[:pos], result[pos+1:]...)
-							fmt.Printf(string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+								result = append(result[:pos], result[pos+1:]...)
+								fmt.Printf(string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+							}
 						}
 					}
 				}
+			} else if r == '\x01' { // Ctrl+A - move to start of line
+				fmt.Printf(strings.Repeat(escMoveLeft, pos))
+				pos = 0
+			} else if r == '\x02' { // Ctrl+B - move back
+				fmt.Printf(escMoveLeft)
+				pos--
+			} else if r == '\x05' { // Ctrl+E - move to end of line
+				fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
+				pos = len(result)
+			} else if r == '\x06' { // Ctrl+F - move forward
+				fmt.Printf(escMoveRight)
+				pos++
+			} else if r == '\x0B' { // Ctrl+K - delete to end of line
+				fmt.Printf(strings.Repeat(" ", len(result)-pos))
+				fmt.Printf(strings.Repeat(escMoveLeft, len(result)-pos))
+				result = result[:pos]
+			} else if r == '\x15' { // Ctrl+U - delete to start of line
+				fmt.Printf(strings.Repeat(escMoveLeft, pos))
+				fmt.Printf(string(result[pos:]) + strings.Repeat(" ", pos))
+				fmt.Printf(strings.Repeat(escMoveLeft, len(result)))
+				result = result[pos:]
+				pos = 0
+			} else if ' ' <= r {
+				result = append(result[:pos], append([]rune{r}, result[pos:]...)...)
+				fmt.Printf(string(result[pos:]) + strings.Repeat(escMoveLeft, len(result)-pos-1))
+				pos++
 			}
-		} else if r == '\x01' { // Ctrl+A - move to start of line
-			fmt.Printf(strings.Repeat(escMoveLeft, pos))
-			pos = 0
-		} else if r == '\x02' { // Ctrl+B - move back
-			fmt.Printf(escMoveLeft)
-			pos--
-		} else if r == '\x05' { // Ctrl+E - move to end of line
-			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos))
-			pos = len(result)
-		} else if r == '\x06' { // Ctrl+F - move forward
-			fmt.Printf(escMoveRight)
-			pos++
-		} else if r == '\x0B' { // Ctrl+K - delete to end of line
-			fmt.Printf(strings.Repeat(" ", len(result)-pos))
-			fmt.Printf(strings.Repeat(escMoveLeft, len(result)-pos))
-			result = result[:pos]
-		} else if r == '\x15' { // Ctrl+U - delete to start of line
-			fmt.Printf(strings.Repeat(escMoveLeft, pos))
-			fmt.Printf(string(result[pos:]) + strings.Repeat(" ", pos))
-			fmt.Printf(strings.Repeat(escMoveLeft, len(result)))
-			result = result[pos:]
-			pos = 0
-		} else if ' ' <= r {
-			result = append(result[:pos], append([]rune{r}, result[pos:]...)...)
-			fmt.Printf(string(result[pos:]) + strings.Repeat(escMoveLeft, len(result)-pos-1))
-			pos++
 		}
-	}
-	restore()
+	}()
 
 	if err != nil {
 		if !first {
@@ -738,6 +422,13 @@ Prompt:
 				return fmt.Errorf("unsupported destination type: %T", idst)
 			}
 		}
+	} else if deflt, ok := ideflt.(bool); ok {
+		fmt.Printf(escMoveUp + escMoveStart + escClearLine)
+		if deflt {
+			fmt.Printf("%v [Y/n]: yes\n", label)
+		} else {
+			fmt.Printf("%v [y/N]: no\n", label)
+		}
 	}
 
 	// validators
@@ -805,7 +496,7 @@ func getSelected(iselected interface{}, options reflect.Value) (int, error) {
 
 // Select is a list selection prompt that allows to select one of the list of possible values. The ioptions must be a slice of options. The idst must be a pointer to a variable and must of of the same type as the options (set the option value) or an integer (set the option index). Equally, iselected can be an integer (index) or of the same type as the options (value).
 // Users can select an option using Up or W or K to move up, Down or S or J to move down, Tab and Shift+Tab to move down and up respectively and wrap around, Ctrl+C or Escape to quit, and Ctrl+Z or Enter to select an option.
-func Select(idst interface{}, label string, ioptions interface{}, iselected interface{}) error {
+func Select(idst interface{}, label string, ioptions, iselected interface{}) error {
 	dst := reflect.ValueOf(idst)
 	if dst.Kind() != reflect.Pointer {
 		return fmt.Errorf("destination must be pointer to variable")
@@ -825,12 +516,16 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 
 	// print options
 	fmt.Printf("%v:", label)
+	padding := ""
+	if 2 < len(label) {
+		padding = strings.Repeat(" ", len(label)-2)
+	}
 	for i := 0; i < options.Len(); i++ {
 		opt := options.Index(i).Interface()
 		if i == selected {
-			fmt.Printf("\n"+optionSelected, opt)
+			fmt.Printf("\n"+padding+optionSelected, opt)
 		} else {
-			fmt.Printf("\n"+optionUnselected, opt)
+			fmt.Printf("\n"+padding+optionUnselected, opt)
 		}
 	}
 
@@ -843,54 +538,57 @@ func Select(idst interface{}, label string, ioptions interface{}, iselected inte
 		return err
 	}
 
-	// read input
-	input := bufio.NewReader(os.Stdin)
-	for {
-		var r, csi rune
-		if r, _, err = input.ReadRune(); err != nil {
-			break
-		} else if r == '\x1B' { // escape
-			if input.Buffered() == 0 {
-				err = keyEscape
+	func() {
+		defer restore()
+
+		// read input
+		input := bufio.NewReader(os.Stdin)
+		for {
+			var r, csi rune
+			if r, _, err = input.ReadRune(); err != nil {
 				break
-			} else if r, _, err = input.ReadRune(); err != nil {
-				break
-			} else if r == '[' {
-				csi, _, err = input.ReadRune()
-				if err != nil {
+			} else if r == '\x1B' { // escape
+				if input.Buffered() == 0 {
+					err = keyEscape
 					break
+				} else if r, _, err = input.ReadRune(); err != nil {
+					break
+				} else if r == '[' {
+					csi, _, err = input.ReadRune()
+					if err != nil {
+						break
+					}
 				}
 			}
-		}
 
-		if r == '\x03' { // interrupt
-			err = keyInterrupt
-			break
-		} else if r == '\x04' || r == '\r' || r == '\n' { // select
-			break
-		} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k' || csi == '\x5A') { // up
-			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
-			fmt.Printf(escMoveUp)
-			selected--
-			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
-		} else if selected != options.Len()-1 && (csi == 'B' || r == 's' || r == 'j' || r == '\t') { // down
-			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
-			fmt.Printf(escMoveDown)
-			selected++
-			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
-		} else if csi == 'H' || selected == options.Len()-1 && r == '\t' { // home
-			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
-			fmt.Printf(strings.Repeat(escMoveUp, selected))
-			selected = 0
-			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
-		} else if csi == 'F' || selected == 0 && csi == '\x5A' { // end
-			fmt.Printf(escMoveStart+escClearLine+optionUnselected, options.Index(selected).Interface())
-			fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
-			selected = options.Len() - 1
-			fmt.Printf(escMoveStart+escClearLine+optionSelected, options.Index(selected).Interface())
+			if r == '\x03' { // interrupt
+				err = keyInterrupt
+				break
+			} else if r == '\x04' || r == '\r' || r == '\n' { // select
+				break
+			} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k' || csi == '\x5A') { // up
+				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
+				fmt.Printf(escMoveUp)
+				selected--
+				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
+			} else if selected != options.Len()-1 && (csi == 'B' || r == 's' || r == 'j' || r == '\t') { // down
+				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
+				fmt.Printf(escMoveDown)
+				selected++
+				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
+			} else if csi == 'H' || selected == options.Len()-1 && r == '\t' { // home
+				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
+				fmt.Printf(strings.Repeat(escMoveUp, selected))
+				selected = 0
+				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
+			} else if csi == 'F' || selected == 0 && csi == '\x5A' { // end
+				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
+				fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
+				selected = options.Len() - 1
+				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
+			}
 		}
-	}
-	restore()
+	}()
 
 	// go to bottom and clear output
 	fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
