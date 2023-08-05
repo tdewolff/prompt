@@ -14,6 +14,8 @@ import (
 	"github.com/araddon/dateparse"
 )
 
+var selectMaxLines = 10    // maximum number of lines to show
+var selectScrollOffset = 3 // minimum number of lines above/below cursor
 var optionSelected = fmt.Sprintf("%v[\u00D7] %%v%v", escBold, escReset)
 var optionUnselected = "[ ] %v"
 var keyInterrupt = fmt.Errorf("interrupt")
@@ -173,7 +175,7 @@ Prompt:
 	}
 
 	// make raw and hide input
-	restore, err := MakeRaw(false)
+	restore, err := MakeRawTerminal(false)
 	if err != nil {
 		return err
 	}
@@ -294,7 +296,7 @@ Prompt:
 	if editDefault || res != "" || ival == nil {
 		switch idst.(type) {
 		case []byte:
-			ival = res
+			ival = []byte(res)
 		case string:
 			ival = res
 		case bool:
@@ -455,7 +457,9 @@ Prompt:
 
 func getSelected(iselected interface{}, options reflect.Value) (int, error) {
 	var selected int
-	if reflect.TypeOf(iselected) == options.Type().Elem() {
+	if iselected == nil {
+		// noop
+	} else if reflect.TypeOf(iselected) == options.Type().Elem() {
 		vselected := reflect.ValueOf(iselected)
 		for i := 0; i < options.Len(); i++ {
 			if options.Index(i).Equal(vselected) {
@@ -508,42 +512,94 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 		return fmt.Errorf("options must be slice")
 	} else if options.Len() == 0 {
 		return fmt.Errorf("no options")
-	} else if 256 <= options.Len() {
-		return fmt.Errorf("too many options")
+	}
+	selected, err := getSelected(iselected, options)
+	if err != nil {
+		return err
 	}
 
-	selected, err := getSelected(iselected, options)
+	// set constants
+	numLines := Min(selectMaxLines, options.Len())
+	if _, rows, err := TerminalSize(); err != nil {
+		return err
+	} else if rows-1 < numLines {
+		numLines = rows - 1 // keep one for prompt row
+	}
+	scrollOffset := selectScrollOffset
+	if numLines/2 < scrollOffset {
+		scrollOffset = numLines / 2
+	}
 
-	// print options
+	// print label
 	fmt.Printf("%v:", label)
 	padding := ""
 	if 2 < len(label) {
 		padding = strings.Repeat(" ", len(label)-2)
 	}
-	for i := 0; i < options.Len(); i++ {
-		opt := options.Index(i).Interface()
-		if i == selected {
+	preOption := escMoveStart + escClearLine + padding
+
+	// print options
+	windowStart := Clip(selected-(numLines-1)/2, 0, options.Len()-numLines)
+	for i := 0; i < numLines; i++ {
+		opt := options.Index(windowStart + i).Interface()
+		if windowStart+i == selected {
 			fmt.Printf("\n"+padding+optionSelected, opt)
 		} else {
 			fmt.Printf("\n"+padding+optionUnselected, opt)
 		}
 	}
-
 	// go to selected option
-	fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, options.Len()-1-selected))
+	fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, numLines-1-(selected-windowStart)))
 
 	// make raw and hide input
-	restore, err := MakeRaw(true)
+	restore, err := MakeRawTerminal(true)
 	if err != nil {
 		return err
 	}
 
+	var search []rune
+	prevSelected := selected
 	func() {
 		defer restore()
 
 		// read input
 		input := bufio.NewReader(os.Stdin)
 		for {
+			if selected != prevSelected {
+				prevWindowStart := windowStart
+				if selected < prevSelected && Max(0, selected-scrollOffset) < windowStart {
+					// move window up
+					windowStart = Max(0, selected-scrollOffset)
+				} else if prevSelected < selected && windowStart < Min(selected+scrollOffset+1-numLines, options.Len()-numLines) {
+					// move window down
+					windowStart = Min(selected+scrollOffset+1-numLines, options.Len()-numLines)
+				}
+				//fmt.Println(escMoveStart, selected, windowStart)
+				if windowStart != prevWindowStart || prevSelected == -1 {
+					// print all options
+					fmt.Printf(strings.Repeat(escMoveUp, prevSelected-prevWindowStart+1))
+					for i := 0; i < numLines; i++ {
+						opt := options.Index(windowStart + i).Interface()
+						if windowStart+i == selected {
+							fmt.Printf(escMoveDown+preOption+optionSelected, opt)
+						} else {
+							fmt.Printf(escMoveDown+preOption+optionUnselected, opt)
+						}
+					}
+					// go to selected option
+					fmt.Printf(escMoveStart + strings.Repeat(escMoveUp, numLines-1-(selected-windowStart)))
+				} else {
+					fmt.Printf(preOption+optionUnselected, options.Index(prevSelected).Interface())
+					if selected < prevSelected {
+						fmt.Printf(strings.Repeat(escMoveUp, prevSelected-selected))
+					} else {
+						fmt.Printf(strings.Repeat(escMoveDown, selected-prevSelected))
+					}
+					fmt.Printf(preOption+optionSelected, options.Index(selected).Interface())
+				}
+				prevSelected = selected
+			}
+
 			var r, csi rune
 			if r, _, err = input.ReadRune(); err != nil {
 				break
@@ -566,33 +622,23 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 				break
 			} else if r == '\x04' || r == '\r' || r == '\n' { // select
 				break
-			} else if selected != 0 && (csi == 'A' || r == 'w' || r == 'k' || csi == '\x5A') { // up
-				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
-				fmt.Printf(escMoveUp)
+			} else if selected != 0 && (csi == 'A' || csi == '\x5A') { // up
 				selected--
-				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
-			} else if selected != options.Len()-1 && (csi == 'B' || r == 's' || r == 'j' || r == '\t') { // down
-				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
-				fmt.Printf(escMoveDown)
+			} else if selected != options.Len()-1 && (csi == 'B' || r == '\t') { // down
 				selected++
-				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
-			} else if csi == 'H' || selected == options.Len()-1 && r == '\t' { // home
-				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
-				fmt.Printf(strings.Repeat(escMoveUp, selected))
+			} else if csi == 'H' || csi == 'B' || r == '\t' { // home
 				selected = 0
-				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
-			} else if csi == 'F' || selected == 0 && csi == '\x5A' { // end
-				fmt.Printf(escMoveStart+escClearLine+padding+optionUnselected, options.Index(selected).Interface())
-				fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
+			} else if csi == 'F' || csi == 'A' || csi == '\x5A' { // end
 				selected = options.Len() - 1
-				fmt.Printf(escMoveStart+escClearLine+padding+optionSelected, options.Index(selected).Interface())
+			} else if r != '\x1B' {
+				search = append(search, r)
 			}
 		}
 	}()
 
 	// go to bottom and clear output
-	fmt.Printf(strings.Repeat(escMoveDown, options.Len()-1-selected))
-	clearlines(options.Len() + 1)
+	fmt.Printf(strings.Repeat(escMoveDown, numLines-1-(selected-windowStart)))
+	clearlines(numLines + 1)
 
 	fmt.Printf("%v: ", label)
 	if err != nil {
