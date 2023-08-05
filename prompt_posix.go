@@ -19,6 +19,8 @@ var (
 	escMoveRight  = "\x1B[1C"
 	escMoveStart  = "\x1B[G"
 	escMoveToCol  = "\x1B[%dG"
+	escSavePos    = "\x1B[s"
+	escRestorePos = "\x1B[u"
 	escBold       = "\x1B[1m"
 	escRed        = "\x1B[31m"
 	escReset      = "\x1B[0m"

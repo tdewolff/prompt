@@ -26,7 +26,7 @@ func Enter(label string) {
 	fmt.Printf("%v [enter]: ", label)
 
 	var res string
-	fmt.Scanf("%s\n", &res)
+	fmt.Scanln(&res)
 }
 
 // YesNo is a prompt that requires a yes or no answer. It returns true for any of (1,y,yes,t,true), and false for any of (0,n,no,f,false). It is case-insensitive.
@@ -39,17 +39,18 @@ Prompt:
 	} else {
 		fmt.Printf("%v [y/N]: ", label)
 	}
+	fmt.Printf(escSavePos)
 
 	var res string
-	fmt.Scanf("%s\n", &res)
+	fmt.Scanln(&res)
 	res = strings.TrimSpace(res)
 
 	if res == "" {
-		fmt.Printf(escMoveUp + escMoveStart + escClearLine)
+		fmt.Printf(escRestorePos + escMoveUp)
 		if deflt {
-			fmt.Printf("%v [Y/n]: yes\n", label)
+			fmt.Printf("yes\n")
 		} else {
-			fmt.Printf("%v [y/N]: no\n", label)
+			fmt.Printf("no\n")
 		}
 		return deflt
 	} else {
@@ -486,10 +487,8 @@ func getSelected(iselected interface{}, options reflect.Value) (int, error) {
 	} else {
 		return 0, fmt.Errorf("selected must be integer type or %v", options.Type().Elem())
 	}
-	if selected < 0 {
-		selected = 0
-	} else if options.Len() <= selected {
-		selected = options.Len() - 1
+	if selected < 0 || options.Len() <= selected {
+		return 0, fmt.Errorf("selected must be in range [0,%d]", options.Len()-1)
 	}
 	return selected, nil
 }
@@ -525,6 +524,7 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 	} else if rows-1 < maxLines {
 		maxLines = rows - 1 // keep one for prompt row
 	}
+	search := maxLines < options.Len() || 25 < options.Len()
 	numLines := Min(maxLines, options.Len())
 	scrollOffset := selectScrollOffset
 	if (numLines-1)/2 < scrollOffset {
@@ -560,7 +560,7 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 	}
 
 	// make raw and hide input
-	restore, err := MakeRawTerminal(false)
+	restore, err := MakeRawTerminal(!search)
 	if err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 		input := bufio.NewReader(os.Stdin)
 		for {
 			// change search results
-			if string(query) != string(prevQuery) {
+			if search && string(query) != string(prevQuery) {
 				fmt.Printf(escMoveStart+escClearLine+"%v: %v"+escMoveToCol, label, string(query), len(label)+3+pos)
 				i := 0
 				hasSelected := false
@@ -764,7 +764,7 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 				fmt.Printf(strings.Repeat(escMoveLeft, len(query)))
 				query = query[pos:]
 				pos = 0
-			} else if ' ' <= r {
+			} else if search && ' ' <= r {
 				query = append(query[:pos], append([]rune{r}, query[pos:]...)...)
 				fmt.Printf(string(query[pos:]) + strings.Repeat(escMoveLeft, len(query)-pos-1))
 				pos++

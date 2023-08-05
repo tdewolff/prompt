@@ -9,6 +9,9 @@ Command line prompter for terminal user interaction with the following features:
 
 *See also [github.com/tdewolff/argp](https://github.com/tdewolff/argp) for a command line argument parser.*
 
+TODO: capture terminal resize event
+TODO: handle long labels for prompt/select
+
 ## Installation
 Make sure you have [Git](https://git-scm.com/) and [Go](https://golang.org/dl/) (1.13 or higher) installed, run
 ```
@@ -69,7 +72,9 @@ func main() {
 }
 ```
 
-The select prompt allows users to use keys such as: <kbd>Up</kbd>, <kbd>W</kbd>, <kbd>K</kbd> to go up; <kbd>Down</kbd>, <kbd>S</kbd>, <kbd>J</kbd> to go down; <kbd>Tab</kbd> and <kbd>Shift</kbd> + <kbd>Tab</kbd> to go down or up respectively with wrapping around; <kbd>Home</kbd> to go to first; <kbd>End</kbd> to go to last; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to select option; and <kbd>Ctrl</kbd> + <kbd>C</kbd>, <kbd>Esc</kbd> to quit.
+The select prompt allows users to use keys such as: <kbd>Up</kbd>, <kbd>Shift</kbd> + <kbd>Tab</kbd> to go up; <kbd>Down</kbd>, <kbd>Tab</kbd> to go down; <kbd>Enter</kbd>, <kbd>Ctrl</kbd> + <kbd>D</kbd> to select option; <kbd>Ctrl</kbd> + <kbd>C</kbd> to quit; and <kbd>Esc</kbd> to cancel the selection.
+
+When there are many options, it is possible to enter a query to filter options.
 
 ### Yes/No prompt
 A yes or no prompt returning `true` or `false`.
