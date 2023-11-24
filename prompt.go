@@ -14,7 +14,7 @@ import (
 	"github.com/araddon/dateparse"
 )
 
-var selectMaxLines = 10    // maximum number of lines to show
+var selectMaxLines = 25    // maximum number of lines to show
 var selectScrollOffset = 5 // minimum number of lines above/below cursor
 var optionSelected = fmt.Sprintf("%v[\u00D7] %%v%v", escBold, escReset)
 var optionUnselected = "[ ] %v"
@@ -46,11 +46,11 @@ Prompt:
 	res = strings.TrimSpace(res)
 
 	if res == "" {
-		fmt.Printf(escRestorePos + escMoveUp)
+		fmt.Printf(escMoveUp + escMoveStart + escClearLine)
 		if deflt {
-			fmt.Printf("yes\n")
+			fmt.Printf("%v [Y/n]: yes\n", label)
 		} else {
-			fmt.Printf("no\n")
+			fmt.Printf("%v [y/N]: no\n", label)
 		}
 		return deflt
 	} else {
@@ -277,9 +277,6 @@ Prompt:
 		if err == keyInterrupt {
 			fmt.Printf(strings.Repeat(escMoveRight, len(result)-pos) + "^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		} else if err == keyEscape {
-			fmt.Printf("\n")
-			return nil
 		}
 		fmt.Printf("\n")
 		return err
@@ -487,8 +484,10 @@ func getSelected(iselected interface{}, options reflect.Value) (int, error) {
 	} else {
 		return 0, fmt.Errorf("selected must be integer type or %v", options.Type().Elem())
 	}
-	if selected < 0 || options.Len() <= selected {
-		return 0, fmt.Errorf("selected must be in range [0,%d]", options.Len()-1)
+	if selected < 0 {
+		selected = 0
+	} else if options.Len() <= selected {
+		selected = options.Len() - 1
 	}
 	return selected, nil
 }
@@ -781,9 +780,6 @@ func Select(idst interface{}, label string, ioptions, iselected interface{}) err
 		if err == keyInterrupt {
 			fmt.Printf("^C")
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		} else if err == keyEscape {
-			fmt.Printf("\n")
-			return nil
 		}
 		fmt.Printf("\n")
 		return err
