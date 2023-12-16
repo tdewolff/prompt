@@ -63,12 +63,6 @@ Prompt:
 		b = true
 	} else if res == "n" || res == "no" {
 		b = false
-	} else {
-		var perr error
-		b, perr = strconv.ParseBool(res)
-		if perr != nil {
-			err = fmt.Errorf("invalid boolean")
-		}
 	}
 	if err != nil {
 		first = false
