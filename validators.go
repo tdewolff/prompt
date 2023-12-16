@@ -128,6 +128,96 @@ func Suffix(afix string) Validator {
 	}
 }
 
+// Before matches if the input is before the given number of date.
+func Before(before any) Validator {
+	return func(i any) error {
+		if reflect.TypeOf(before) != reflect.TypeOf(i) {
+			return fmt.Errorf("expected %v", reflect.TypeOf(before))
+		}
+
+		var ok bool
+		switch v := i.(type) {
+		case int:
+			ok = v < before.(int)
+		case int8:
+			ok = v < before.(int8)
+		case int16:
+			ok = v < before.(int16)
+		case int32:
+			ok = v < before.(int32)
+		case int64:
+			ok = v < before.(int64)
+		case uint:
+			ok = v < before.(uint)
+		case uint8:
+			ok = v < before.(uint8)
+		case uint16:
+			ok = v < before.(uint16)
+		case uint32:
+			ok = v < before.(uint32)
+		case uint64:
+			ok = v < before.(uint64)
+		case float32:
+			ok = v < before.(float32)
+		case float64:
+			ok = v < before.(float64)
+		case time.Time:
+			ok = v.Before(before.(time.Time))
+		default:
+			return fmt.Errorf("expected integer, floating point, or timestamp")
+		}
+		if !ok {
+			return fmt.Errorf("must be before %v", before)
+		}
+		return nil
+	}
+}
+
+// After matches if the input is after the given number of date.
+func After(after any) Validator {
+	return func(i any) error {
+		if reflect.TypeOf(after) != reflect.TypeOf(i) {
+			return fmt.Errorf("expected %v", reflect.TypeOf(after))
+		}
+
+		var ok bool
+		switch v := i.(type) {
+		case int:
+			ok = after.(int) < v
+		case int8:
+			ok = after.(int8) < v
+		case int16:
+			ok = after.(int16) < v
+		case int32:
+			ok = after.(int32) < v
+		case int64:
+			ok = after.(int64) < v
+		case uint:
+			ok = after.(uint) < v
+		case uint8:
+			ok = after.(uint8) < v
+		case uint16:
+			ok = after.(uint16) < v
+		case uint32:
+			ok = after.(uint32) < v
+		case uint64:
+			ok = after.(uint64) < v
+		case float32:
+			ok = after.(float32) < v
+		case float64:
+			ok = after.(float64) < v
+		case time.Time:
+			ok = v.After(after.(time.Time))
+		default:
+			return fmt.Errorf("expected integer, floating point, or timestamp")
+		}
+		if !ok {
+			return fmt.Errorf("must be after %v", after)
+		}
+		return nil
+	}
+}
+
 // Pattern matches the given pattern.
 func Pattern(pattern, message string) Validator {
 	re := regexp.MustCompile(pattern)
