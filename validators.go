@@ -11,11 +11,11 @@ import (
 )
 
 // Validator is a validator interface.
-type Validator func(interface{}) error
+type Validator func(any) error
 
 // StrLength matches if the input length is in the given range (inclusive). Use -1 for an open limit.
 func StrLength(min, max int) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -35,38 +35,41 @@ func StrLength(min, max int) Validator {
 
 // NumRange matches if the input is in the given number range (inclusive). Use NaN or +/-Inf for an open limit.
 func NumRange(min, max float64) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var num float64
-		if n, ok := i.(int); ok {
-			num = float64(n)
-		} else if n, ok := i.(int8); ok {
-			num = float64(n)
-		} else if n, ok := i.(int16); ok {
-			num = float64(n)
-		} else if n, ok := i.(int32); ok {
-			num = float64(n)
-		} else if n, ok := i.(int64); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint8); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint16); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint32); ok {
-			num = float64(n)
-		} else if n, ok := i.(uint64); ok {
-			num = float64(n)
-		} else if n, ok := i.(float32); ok {
-			num = float64(n)
-		} else if n, ok := i.(float64); ok {
-			num = n
-		} else if inter, ok := i.(interface{ Int64() int64 }); ok {
-			num = float64(inter.Int64())
-		} else if floater, ok := i.(interface{ Float64() float64 }); ok {
-			num = floater.Float64()
-		} else {
-			return fmt.Errorf("expected integer or floating point")
+		switch v := i.(type) {
+		case int:
+			num = float64(v)
+		case int8:
+			num = float64(v)
+		case int16:
+			num = float64(v)
+		case int32:
+			num = float64(v)
+		case int64:
+			num = float64(v)
+		case uint:
+			num = float64(v)
+		case uint8:
+			num = float64(v)
+		case uint16:
+			num = float64(v)
+		case uint32:
+			num = float64(v)
+		case uint64:
+			num = float64(v)
+		case float32:
+			num = float64(v)
+		case float64:
+			num = v
+		default:
+			if inter, ok := i.(interface{ Int64() int64 }); ok {
+				num = float64(inter.Int64())
+			} else if floater, ok := i.(interface{ Float64() float64 }); ok {
+				num = floater.Float64()
+			} else {
+				return fmt.Errorf("expected integer or floating point")
+			}
 		}
 		if !math.IsNaN(min) && num < min || !math.IsNaN(max) && max < num {
 			return fmt.Errorf("out of range [%v,%v]", min, max)
@@ -77,7 +80,7 @@ func NumRange(min, max float64) Validator {
 
 // DateRange matches if the input is in the given time range (inclusive). Use time.Time's zero value for an open limit.
 func DateRange(min, max time.Time) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		if t, ok := i.(time.Time); ok {
 			if !min.IsZero() && t.Before(min) || !max.IsZero() && t.After(max) {
 				return fmt.Errorf("out of range [%v,%v]", min, max)
@@ -91,7 +94,7 @@ func DateRange(min, max time.Time) Validator {
 
 // Prefix matches if the input has the given prefix.
 func Prefix(afix string) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -109,7 +112,7 @@ func Prefix(afix string) Validator {
 
 // Suffix matches if the input has the given suffix.
 func Suffix(afix string) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -128,7 +131,7 @@ func Suffix(afix string) Validator {
 // Pattern matches the given pattern.
 func Pattern(pattern, message string) Validator {
 	re := regexp.MustCompile(pattern)
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -201,7 +204,7 @@ func FQDN() Validator {
 
 // Dir matches a path to an existing directory on the system.
 func Dir() Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -221,7 +224,7 @@ func Dir() Validator {
 
 // File matches a path to an existing file on the system.
 func File() Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		var str string
 		if s, ok := i.(string); ok {
 			str = s
@@ -240,9 +243,9 @@ func File() Validator {
 }
 
 // Is matches if the input matches the given value.
-func Is(elem interface{}) Validator {
+func Is(elem any) Validator {
 	velem := reflect.ValueOf(elem)
-	return func(i interface{}) error {
+	return func(i any) error {
 		v := reflect.ValueOf(i)
 		if v.Type() != velem.Type() {
 			return fmt.Errorf("expected %v", velem.Type().Name())
@@ -254,13 +257,13 @@ func Is(elem interface{}) Validator {
 }
 
 // In matches if the input matches any element of the list.
-func In(list interface{}) Validator {
+func In(list any) Validator {
 	vlist := reflect.ValueOf(list)
 	if vlist.Kind() != reflect.Slice {
 		panic("list must be a slice")
 	}
 	elemType := vlist.Type().Elem()
-	return func(i interface{}) error {
+	return func(i any) error {
 		v := reflect.ValueOf(i)
 		if v.Type() != elemType {
 			return fmt.Errorf("expected %v", elemType.Name())
@@ -275,13 +278,13 @@ func In(list interface{}) Validator {
 }
 
 // NotIn matches if the input does not match any element of the list.
-func NotIn(list interface{}) Validator {
+func NotIn(list any) Validator {
 	vlist := reflect.ValueOf(list)
 	if vlist.Kind() != reflect.Slice {
 		panic("list must be a slice")
 	}
 	elemType := vlist.Type().Elem()
-	return func(i interface{}) error {
+	return func(i any) error {
 		v := reflect.ValueOf(i)
 		if v.Type() != elemType {
 			return fmt.Errorf("expected %v", elemType.Name())
@@ -297,7 +300,7 @@ func NotIn(list interface{}) Validator {
 
 // Not evaluates the validator using the logical NOT operator, i.e. satisfies if the validator does not satisfy.
 func Not(validator Validator) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		if validator(i) != nil {
 			return nil
 		}
@@ -307,7 +310,7 @@ func Not(validator Validator) Validator {
 
 // And evaluates multiple validators using the logical AND operator, i.e. must satisfy all validators. This is only useful inside logical OR validators.
 func And(validators ...Validator) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		if len(validators) == 0 {
 			return nil
 		}
@@ -322,7 +325,7 @@ func And(validators ...Validator) Validator {
 
 // Or evaluates multiple validators using the logical OR operator, i.e. at least one validator must be satisfied.
 func Or(validators ...Validator) Validator {
-	return func(i interface{}) error {
+	return func(i any) error {
 		if len(validators) == 0 {
 			return nil
 		}
