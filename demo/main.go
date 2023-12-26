@@ -52,25 +52,33 @@ func (lang Language) String() string {
 }
 
 func main() {
-	var name string
 	var age uint
 	var language Language
 	var smoker bool
-	var car string
-	if err := prompt.Prompt(&name, "Name", prompt.Default("Juan", 2), prompt.StrLength(3, -1)); err != nil {
+	smokerBrands := []string{"Camel"}
+	name := "Juan"
+	car := "Subaru"
+
+	if err := prompt.Prompt(prompt.Default(&name, name, 2), "Name", prompt.StrLength(3, -1)); err != nil {
 		panic(err)
 	}
-	if err := prompt.Prompt(&age, "Age (18-65)", nil, prompt.NumRange(18, 65)); err != nil {
+	if err := prompt.Prompt(&age, "Age (18-65)", prompt.NumRange(18, 65)); err != nil {
 		panic(err)
 	}
-	if err := prompt.Prompt(&language, "Language", language); err != nil {
+	if err := prompt.Prompt(&language, "Language"); err != nil {
 		panic(err)
 	}
-	if err := prompt.Prompt(&smoker, "Smoker", nil); err != nil {
+	if err := prompt.Prompt(&smoker, "Smoker"); err != nil {
 		panic(err)
+	}
+	if smoker {
+		brands := []string{"Marlboro", "Newport", "Camel", "Pall Mall"}
+		if err := prompt.Checklist(&smokerBrands, "Cigarette brands", brands); err != nil {
+			panic(err)
+		}
 	}
 	cars := []string{"Chevrolet", "Kia", "Peugeot", "Subaru", "Volvo"}
-	if err := prompt.Select(&car, "Car brand", cars, "Subaru"); err != nil {
+	if err := prompt.Select(&car, "Car brand", cars); err != nil {
 		panic(err)
 	}
 	smokerMsg := ""

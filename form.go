@@ -23,19 +23,19 @@ func (f *Form) Print(label string, ival interface{}) {
 	})
 }
 
-func (f *Form) Prompt(idst interface{}, label string, ideflt interface{}, validators ...Validator) {
+func (f *Form) Prompt(idst interface{}, label string, validators ...Validator) {
 	i := len(f.labels)
 	f.labels = append(f.labels, label)
 	f.inputs = append(f.inputs, func() error {
-		return Prompt(idst, f.labels[i], ideflt, validators...)
+		return Prompt(idst, f.labels[i], validators...)
 	})
 }
 
-func (f *Form) Select(idst interface{}, label string, ioptions, iselected interface{}) {
+func (f *Form) Select(idst interface{}, label string, ioptions interface{}) {
 	i := len(f.labels)
 	f.labels = append(f.labels, label)
 	f.inputs = append(f.inputs, func() error {
-		return Select(idst, f.labels[i], ioptions, iselected)
+		return Select(idst, f.labels[i], ioptions)
 	})
 }
 
