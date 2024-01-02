@@ -195,7 +195,7 @@ Prompt:
 				if pos != 0 {
 					result = append(result[:pos-1], result[pos:]...)
 					pos--
-					fmt.Printf(escMoveLeft + string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+					fmt.Printf(escMoveLeft+"%v "+strings.Repeat(escMoveLeft, len(result)+1-pos), string(result[pos:]))
 				}
 			} else if r == '\x1B' { // escape
 				if input.Buffered() == 0 {
@@ -233,7 +233,7 @@ Prompt:
 							if pos != len(result) {
 
 								result = append(result[:pos], result[pos+1:]...)
-								fmt.Printf(string(result[pos:]) + " " + strings.Repeat(escMoveLeft, len(result)+1-pos))
+								fmt.Printf("%v "+strings.Repeat(escMoveLeft, len(result)+1-pos), string(result[pos:]))
 							}
 						}
 					}
@@ -256,13 +256,13 @@ Prompt:
 				result = result[:pos]
 			} else if r == '\x15' { // Ctrl+U - delete to start of line
 				fmt.Printf(strings.Repeat(escMoveLeft, pos))
-				fmt.Printf(string(result[pos:]) + strings.Repeat(" ", pos))
+				fmt.Printf("%v"+strings.Repeat(" ", pos), string(result[pos:]))
 				fmt.Printf(strings.Repeat(escMoveLeft, len(result)))
 				result = result[pos:]
 				pos = 0
 			} else if ' ' <= r {
 				result = append(result[:pos], append([]rune{r}, result[pos:]...)...)
-				fmt.Printf(string(result[pos:]) + strings.Repeat(escMoveLeft, len(result)-pos-1))
+				fmt.Printf("%v"+strings.Repeat(escMoveLeft, len(result)-pos-1), string(result[pos:]))
 				pos++
 			}
 		}

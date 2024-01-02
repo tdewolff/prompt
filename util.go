@@ -175,7 +175,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			if pos != 0 {
 				query = append(query[:pos-1], query[pos:]...)
 				pos--
-				fmt.Printf(escMoveLeft + string(query[pos:]) + " " + strings.Repeat(escMoveLeft, len(query)+1-pos))
+				fmt.Printf(escMoveLeft+"%v "+strings.Repeat(escMoveLeft, len(query)+1-pos), string(query[pos:]))
 			}
 		} else if r == '\x1B' { // escape
 			if input.Buffered() == 0 {
@@ -227,7 +227,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 							if pos != len(query) {
 
 								query = append(query[:pos], query[pos+1:]...)
-								fmt.Printf(string(query[pos:]) + " " + strings.Repeat(escMoveLeft, len(query)+1-pos))
+								fmt.Printf("%v "+strings.Repeat(escMoveLeft, len(query)+1-pos), string(query[pos:]))
 							}
 						} else if r == '5' { // page up
 							selected -= numLines
@@ -270,13 +270,13 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			query = query[:pos]
 		} else if r == '\x15' { // Ctrl+U - delete to start of line
 			fmt.Printf(strings.Repeat(escMoveLeft, pos))
-			fmt.Printf(string(query[pos:]) + strings.Repeat(" ", pos))
+			fmt.Printf("%v"+strings.Repeat(" ", pos), string(query[pos:]))
 			fmt.Printf(strings.Repeat(escMoveLeft, len(query)))
 			query = query[pos:]
 			pos = 0
 		} else if withQuery && ' ' <= r {
 			query = append(query[:pos], append([]rune{r}, query[pos:]...)...)
-			fmt.Printf(string(query[pos:]) + strings.Repeat(escMoveLeft, len(query)-pos-1))
+			fmt.Printf("%v"+strings.Repeat(escMoveLeft, len(query)-pos-1), string(query[pos:]))
 			pos++
 		}
 	}
