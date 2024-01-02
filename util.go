@@ -95,9 +95,6 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 				}
 				i++
 			}
-			if !hasSelected {
-				selected = 0
-			}
 			prevQuery = query
 
 			fmt.Printf(escMoveStart + strings.Repeat(escMoveDown+escClearLine, numLines))
@@ -108,9 +105,12 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			if numLines == 0 {
 				fmt.Printf("\n" + padding + escRed + "No options found" + escReset)
 				fmt.Printf(escMoveUp+escMoveToCol, len(label)+3+pos)
-				prevSelected = 0
+				prevSelected, selected = 0, 0
 			} else {
 				prevSelected = -1
+				if !hasSelected {
+					selected = 0
+				}
 			}
 		}
 
@@ -129,8 +129,8 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			if windowStart != prevWindowStart || prevSelected == -1 {
 				// print all options
 				for i := 0; i < numLines; i++ {
-					j := optionsIndex[i]
-					fmt.Printf(escMoveDown+escMoveStart+escClearLine+optionMarkup(j, selected), options[j])
+					j := optionsIndex[windowStart+i]
+					fmt.Printf(escMoveDown+escMoveStart+escClearLine+padding+optionMarkup(j, optionsIndex[selected]), options[j])
 				}
 				// go to query
 				fmt.Printf(escMoveUpN+escMoveToCol, numLines, len(label)+3+pos)
@@ -148,7 +148,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 				fmt.Printf(escMoveUpN+escMoveToCol, selected-windowStart+1, len(label)+3+pos)
 			}
 			prevSelected = selected
-		} else {
+		} else if 0 < len(optionsIndex) {
 			j := optionsIndex[selected]
 			fmt.Printf(escMoveDownN+escMoveStart+escClearLine+padding+optionMarkup(j, j), selected-windowStart+1, options[j])
 			// go to query
