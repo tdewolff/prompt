@@ -81,8 +81,22 @@ type defaultValue struct {
 	pos    int
 }
 
-// Default is the default value with the initial text caret position used for Prompt.
-func Default(idst, ideflt interface{}, pos int) defaultValue {
+// NonZeroDefault is the default value used for Prompt. The default value will be empty when the destination is its zero value.
+func NonZeroDefault(idst, ideflt interface{}) defaultValue {
+	dst := reflect.ValueOf(idst)
+	if dst.Kind() == reflect.Pointer && !dst.Elem().IsZero() {
+		return defaultValue{idst, dst.Elem().Interface(), -1}
+	}
+	return defaultValue{idst, nil, -1}
+}
+
+// Default is the default value used for Prompt.
+func Default(idst, ideflt interface{}) defaultValue {
+	return defaultValue{idst, ideflt, -1}
+}
+
+// Default is the default value with the initial text caret position used for Prompt. A position of -1 means at the end of the value.
+func DefaultWithCaret(idst, ideflt interface{}, pos int) defaultValue {
 	return defaultValue{idst, ideflt, pos}
 }
 
@@ -108,7 +122,7 @@ func Prompt(idst interface{}, label string, validators ...Validator) error {
 		return fmt.Errorf("destination must be a pointer to a variable")
 	}
 	idst = dst.Elem().Interface()
-	if !hasDeflt && ideflt == nil && !dst.Elem().IsZero() {
+	if !hasDeflt && ideflt == nil {
 		ideflt = idst
 	}
 
