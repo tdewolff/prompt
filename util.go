@@ -34,13 +34,13 @@ func matchOption(query, option string) bool {
 	return strings.Contains(strings.ToLower(option), strings.ToLower(query))
 }
 
-func terminalList(label string, options []string, selected, maxLines, scrollOffset int, withQuery bool, optionMarkup func(int, int) string, keyPress func(rune, int)) error {
+func terminalList(label string, options []string, selected, maxLines, scrollOffset int, withQuery bool, exitEnter bool, optionMarkup func(int, int) string, keyPress func(rune, int)) error {
 	fmt.Printf("%v:", label)
 
-	padding := ""
-	if 2 < len(label) && len(label) < 20 {
-		padding = strings.Repeat(" ", len(label)-2)
-	}
+	padding := "  "
+	//if 2 < len(label) && len(label) < 20 {
+	//	padding = strings.Repeat(" ", len(label)-2)
+	//}
 
 	// print options
 	numLines := Min(maxLines, len(options))
@@ -166,11 +166,13 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 		} else if r == '\x04' || r == '\x26' { // Ctrl+D, Ctrl-Z
 			keyPress(r, optionsIndex[selected])
 			return nil
-		} else if r == ' ' { // space
+		} else if r == ' ' { // return, enter
 			keyPress(r, optionsIndex[selected])
 		} else if r == '\r' || r == '\n' { // return, enter
 			keyPress(r, optionsIndex[selected])
-			return nil
+			if exitEnter {
+				return nil
+			}
 		} else if r == '\x7F' { // backspace
 			if pos != 0 {
 				query = append(query[:pos-1], query[pos:]...)
@@ -179,7 +181,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			}
 		} else if r == '\x1B' { // escape
 			if input.Buffered() == 0 {
-				return keyEscape
+				return nil
 			} else if r, _, err = input.ReadRune(); err != nil {
 				return err
 			} else if r == '[' { // CSI

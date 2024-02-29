@@ -239,7 +239,12 @@ func Pattern(pattern, message string) Validator {
 
 // EmailAddress matches a valid e-mail address.
 func EmailAddress() Validator {
-	return Pattern(`^[\w\.-]+@[\w\.-]+\.\w{2,4}$`, "invalid e-mail address")
+	return Pattern(`^[\w\.-]+@([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\.)+[a-z0-9]{2,63}$`, "invalid e-mail address")
+}
+
+// TelephoneNumber matches a valid telephone number.
+func TelephoneNumber() Validator {
+	return Pattern(``, "invalid telephone number") // TODO
 }
 
 // IPAddress matches an IPv4 or IPv6 address.

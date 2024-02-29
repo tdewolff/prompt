@@ -3,7 +3,6 @@ package prompt
 import (
 	"fmt"
 	"reflect"
-	"syscall"
 )
 
 func getChecked(dst, options reflect.Value) ([]bool, error) {
@@ -68,9 +67,10 @@ func Checklist(idst interface{}, label string, ioptions interface{}) error {
 		maxLines = rows - 1 // keep one for prompt row
 	}
 	scrollOffset := selectScrollOffset
-	withQuery := maxLines < options.Len() || 25 < options.Len()
+	withQuery := maxLines < options.Len() || 10 < options.Len()
+	exitEnter := false
 
-	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, func(i, selected int) string {
+	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, exitEnter, func(i, selected int) string {
 		s := "[ ] %v"
 		if checked[i] {
 			s = "[\u00D7] %v"
@@ -80,20 +80,20 @@ func Checklist(idst interface{}, label string, ioptions interface{}) error {
 		}
 		return s
 	}, func(r rune, i int) {
-		if r == ' ' {
+		if r == ' ' || r == '\n' || r == '\r' {
 			checked[i] = !checked[i]
 		}
 	})
+
+	fmt.Printf("%v: ", label)
 	if err != nil {
 		if err == keyInterrupt {
 			fmt.Printf("^C")
-			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		}
 		fmt.Printf("\n")
 		return err
 	}
 
-	fmt.Printf("%v: ", label)
 	first := true
 	for i := 0; i < len(optionStrings); i++ {
 		if checked[i] {

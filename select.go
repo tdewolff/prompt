@@ -3,7 +3,6 @@ package prompt
 import (
 	"fmt"
 	"reflect"
-	"syscall"
 )
 
 func getSelected(dst, options reflect.Value) (int, error) {
@@ -62,9 +61,10 @@ func Select(idst interface{}, label string, ioptions interface{}) error {
 		maxLines = rows - 1 // keep one for prompt row
 	}
 	scrollOffset := selectScrollOffset
-	withQuery := maxLines < options.Len() || 25 < options.Len()
+	withQuery := maxLines < options.Len() || 10 < options.Len()
+	exitEnter := true
 
-	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, func(i, selected int) string {
+	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, exitEnter, func(i, selected int) string {
 		if i == selected {
 			return optionSelected
 		}
@@ -74,16 +74,17 @@ func Select(idst interface{}, label string, ioptions interface{}) error {
 			selected = i
 		}
 	})
+
+	fmt.Printf("%v: ", label)
 	if err != nil {
 		if err == keyInterrupt {
 			fmt.Printf("^C")
-			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		}
 		fmt.Printf("\n")
 		return err
 	}
 
-	fmt.Printf("%v: %v\n", label, optionStrings[selected])
+	fmt.Printf("%v\n", optionStrings[selected])
 
 	if dst.Type() == options.Type().Elem() {
 		dst.Set(options.Index(selected))

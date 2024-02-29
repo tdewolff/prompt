@@ -59,7 +59,7 @@ func main() {
 	name := "Juan"
 	car := "Subaru"
 
-	if err := prompt.Prompt(prompt.Default(&name, name, 2), "Name", prompt.StrLength(3, -1)); err != nil {
+	if err := prompt.Prompt(prompt.DefaultWithCaret(&name, name, 2), "Name", prompt.StrLength(3, -1)); err != nil {
 		panic(err)
 	}
 	if err := prompt.Prompt(&age, "Age (18-65)", prompt.NumRange(18, 65)); err != nil {
