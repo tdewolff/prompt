@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -30,8 +31,15 @@ func Clip(x, a, b int) int {
 	return x
 }
 
-func matchOption(query, option string) bool {
-	return strings.Contains(strings.ToLower(option), strings.ToLower(query))
+func matchOption(query, option string) int {
+	option = strings.ToLower(option)
+	query = strings.ToLower(query)
+	if strings.HasPrefix(option, query) {
+		return 1
+	} else if strings.Contains(option, query) {
+		return 0
+	}
+	return -1
 }
 
 func terminalList(label string, options []string, selected, maxLines, scrollOffset int, withQuery bool, exitEnter bool, optionMarkup func(int, int) string, keyPress func(rune, int)) error {
@@ -61,6 +69,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 
 	// option index in current view to option index in options
 	optionsIndex := make([]int, len(options))
+	optionsScore := make([]int, len(options))
 	for i := 0; i < len(options); i++ {
 		optionsIndex[i] = i
 	}
@@ -85,16 +94,21 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			i := 0
 			hasSelected := false
 			optionsIndex = optionsIndex[:0]
+			optionsScore = optionsScore[:0]
 			for i < len(options) {
-				if matchOption(string(query), options[i]) {
+				if score := matchOption(string(query), options[i]); score != -1 {
 					if i == selected {
 						selected = len(optionsIndex)
 						hasSelected = true
 					}
 					optionsIndex = append(optionsIndex, i)
+					optionsScore = append(optionsScore, score)
 				}
 				i++
 			}
+			sort.Slice(optionsIndex, func(i, j int) bool {
+				return optionsScore[j] <= optionsScore[i]
+			})
 			prevQuery = query
 
 			fmt.Printf(escMoveStart + strings.Repeat(escMoveDown+escClearLine, numLines))
@@ -181,7 +195,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			}
 		} else if r == '\x1B' { // escape
 			if input.Buffered() == 0 {
-				return nil
+				return keyEscape
 			} else if r, _, err = input.ReadRune(); err != nil {
 				return err
 			} else if r == '[' { // CSI
