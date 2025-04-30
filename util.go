@@ -187,7 +187,7 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			if exitEnter {
 				return nil
 			}
-		} else if r == '\x7F' { // backspace
+		} else if r == '\x7F' || r == '\x08' { // backspace
 			if pos != 0 {
 				query = append(query[:pos-1], query[pos:]...)
 				pos--
