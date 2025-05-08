@@ -62,9 +62,9 @@ func Select(idst interface{}, label string, ioptions interface{}) error {
 	}
 	scrollOffset := selectScrollOffset
 	withQuery := maxLines < options.Len() || 10 < options.Len()
-	exitEnter := true
+	enterSelects := true
 
-	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, exitEnter, func(i, selected int) string {
+	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, enterSelects, func(i, selected int) string {
 		if i == selected {
 			return optionSelected
 		}

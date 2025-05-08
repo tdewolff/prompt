@@ -68,9 +68,10 @@ func Checklist(idst interface{}, label string, ioptions interface{}) error {
 	}
 	scrollOffset := selectScrollOffset
 	withQuery := maxLines < options.Len() || 10 < options.Len()
-	exitEnter := false
+	enterSelects := true
 
-	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, exitEnter, func(i, selected int) string {
+	label += " (space selects)"
+	err = terminalList(label, optionStrings, selected, maxLines, scrollOffset, withQuery, enterSelects, func(i, selected int) string {
 		s := "[ ] %v"
 		if checked[i] {
 			s = "[\u00D7] %v"

@@ -42,7 +42,7 @@ func matchOption(query, option string) int {
 	return -1
 }
 
-func terminalList(label string, options []string, selected, maxLines, scrollOffset int, withQuery bool, exitEnter bool, optionMarkup func(int, int) string, keyPress func(rune, int)) error {
+func terminalList(label string, options []string, selected, maxLines, scrollOffset int, withQuery bool, enterSelects bool, optionMarkup func(int, int) string, keyPress func(rune, int)) error {
 	fmt.Printf("%v:", label)
 
 	padding := "  "
@@ -180,13 +180,13 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 		} else if r == '\x04' || r == '\x26' { // Ctrl+D, Ctrl-Z
 			keyPress(r, optionsIndex[selected])
 			return nil
-		} else if r == ' ' { // return, enter
+		} else if r == ' ' { // space
 			keyPress(r, optionsIndex[selected])
 		} else if r == '\r' || r == '\n' { // return, enter
-			keyPress(r, optionsIndex[selected])
-			if exitEnter {
-				return nil
+			if enterSelects {
+				keyPress(r, optionsIndex[selected])
 			}
+			return nil
 		} else if r == '\x7F' || r == '\x08' { // backspace
 			if pos != 0 {
 				query = append(query[:pos-1], query[pos:]...)
