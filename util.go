@@ -175,9 +175,26 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 			return err
 		}
 
+		down := func() {
+			selected++
+			if len(optionsIndex) <= selected {
+				selected = 0
+			}
+		}
+		up := func() {
+			selected--
+			if selected < 0 {
+				if len(optionsIndex) == 0 {
+					selected = 0
+				} else {
+					selected = len(optionsIndex) - 1
+				}
+			}
+		}
+
 		if r == '\x03' { // interrupt
 			return keyInterrupt
-		} else if r == '\x04' || r == '\x26' { // Ctrl+D, Ctrl-Z
+		} else if r == '\x04' || r == '\x26' { // Ctrl+D, Ctrl+Z
 			keyPress(r, optionsIndex[selected])
 			return nil
 		} else if r == ' ' { // space
@@ -220,19 +237,9 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 					fmt.Printf(strings.Repeat(escMoveRight, len(query)-pos))
 					pos = len(query)
 				} else if r == 'A' || r == '\x5A' { // up or shift+tab
-					selected--
-					if selected < 0 {
-						if len(optionsIndex) == 0 {
-							selected = 0
-						} else {
-							selected = len(optionsIndex) - 1
-						}
-					}
+					up()
 				} else if r == 'B' { // down
-					selected++
-					if len(optionsIndex) <= selected {
-						selected = 0
-					}
+					down()
 				} else if r == '3' || r == '5' || r == '6' {
 					if input.Buffered() == 0 {
 						// ignore
@@ -263,11 +270,10 @@ func terminalList(label string, options []string, selected, maxLines, scrollOffs
 					}
 				}
 			}
-		} else if r == '\t' { // tab
-			selected++
-			if len(optionsIndex) <= selected {
-				selected = 0
-			}
+		} else if r == '\t' || r == '\x0e' || r == 'j' { // tab or Ctrl+N or j
+			down()
+		} else if r == '\x10' || r == 'k' { // Ctrl+P or k
+			up()
 		} else if r == '\x01' { // Ctrl+A - move to start of line
 			fmt.Printf(strings.Repeat(escMoveLeft, pos))
 			pos = 0
