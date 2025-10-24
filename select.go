@@ -30,7 +30,7 @@ func getSelected(dst, options reflect.Value) (int, error) {
 }
 
 // Select is a list selection prompt that allows to select one of the list of possible values. The ioptions must be a slice of options. The idst must be a pointer to a variable and must of the same type as the options (set the option value) or an integer (set the option index). The value od idst determines the initial selected value.
-// Users can select an option using Up or W or K to move up, Down or S or J to move down, Tab and Shift+Tab to move down and up respectively and wrap around, Ctrl+C or Escape to quit, and Ctrl+Z or Enter to select an option.
+// Users can select an option using Up, Ctrl+P, 'k', or Shift+Tab to move up, Down, Ctrl+N, 'j', or Tab to move down. Both wraps around. Ctrl+C or Escape to quit, and Ctrl+Z, Enter, or Ctrl+D to select an option.
 func Select(idst interface{}, label string, ioptions interface{}) error {
 	dst := reflect.ValueOf(idst)
 	options := reflect.ValueOf(ioptions)
