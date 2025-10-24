@@ -205,7 +205,7 @@ Prompt:
 				break
 			} else if r == '\x04' || r == '\r' || r == '\n' { // select
 				break
-			} else if r == '\x7F' || r == '\x08' { // backspace
+			} else if r == 0 || r == '\x7F' || r == '\x08' { // backspace
 				if pos != 0 {
 					result = append(result[:pos-1], result[pos:]...)
 					pos--
