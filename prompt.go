@@ -3,6 +3,7 @@ package prompt
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"reflect"
@@ -31,22 +32,22 @@ func Enter(label string) {
 
 // YesNo is a prompt that requires a yes or no answer. It returns true for any of (1,y,yes,t,true), and false for any of (0,n,no,f,false). It is case-insensitive.
 func YesNo(label string, deflt bool) bool {
-	first := true
-
-Prompt:
 	if deflt {
 		fmt.Printf("%v [Y/n]: ", label)
 	} else {
 		fmt.Printf("%v [y/N]: ", label)
 	}
-	fmt.Printf(escSavePos)
 
 	var res string
-	fmt.Scanln(&res)
+	_, err := fmt.Scanln(&res)
 	res = strings.TrimSpace(res)
 
 	if res == "" {
-		fmt.Printf(escMoveUp + escMoveStart + escClearLine)
+		if err == io.EOF {
+			fmt.Printf(escMoveStart + escClearLine)
+		} else {
+			fmt.Printf(escMoveUp + escMoveStart + escClearLine)
+		}
 		if deflt {
 			fmt.Printf("%v [Y/n]: yes\n", label)
 		} else {
@@ -58,19 +59,10 @@ Prompt:
 	}
 
 	var b bool
-	var err error
 	if res == "y" || res == "yes" {
 		b = true
 	} else if res == "n" || res == "no" {
 		b = false
-	}
-	if err != nil {
-		first = false
-		fmt.Printf("%v%v%vERROR: %v%v%v", escClearLine, escRed, escBold, err, escReset, escMoveUp)
-		fmt.Printf(escMoveStart + escClearLine)
-		goto Prompt
-	} else if !first {
-		fmt.Printf(escClearLine) // clear error
 	}
 	return b
 }
